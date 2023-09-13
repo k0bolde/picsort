@@ -1,14 +1,16 @@
-import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 import java.awt.*;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Objects;
 //on start, populate treelist with the folder structure of the computer
 //  remember last root folder?
 //
@@ -16,13 +18,16 @@ import java.io.IOException;
 
 public class MainWindow {
 
-    static private JMenuBar menuBar;
-    static private JMenu menu;
-    static private JMenu menuHelp;
-    static private JMenuItem aboutMenuItem;
-    static private JMenuItem openMenuItem;
-    static private JMenuItem helpMenuItem;
-    static private JMenuItem exitMenuItem;
+    static private JFrame frame;
+    private final JMenuBar menuBar;
+    private final JMenu menu;
+    private final JMenu menuHelp;
+    private final JMenuItem aboutMenuItem;
+    private final JMenuItem openMenuItem;
+    private final JMenuItem helpMenuItem;
+    private final JMenuItem exitMenuItem;
+    private final JMenuItem openFolderMenuItem;
+    private final JFileChooser fc;
     private JPanel panel1;
     private JButton deleteButton;
     private JTree fileTree;
@@ -31,50 +36,178 @@ public class MainWindow {
     private JPanel buttonPanel;
     private JButton nextButton;
     private JButton prevButton;
-    private JComboBox sortOrderComboBox;
+    private JComboBox<String> sortOrderComboBox;
     private JButton undoButton;
     private JLabel sortOrderLabel;
     private JLabel renameLabel;
     private JTextField renameTextField;
-    private JRadioButton browseModeRadioButton;
-    private JRadioButton editModeRadioButton;
     private JTextField currImageTextField;
     private JLabel totalImagesLabel;
     private JLabel imageLabel;
-//    private final BufferedImage currPic;
+    private java.util.List<File> filesInDir;
+    private int imgIdx = 0;
 
     public MainWindow() {
+        fc = new JFileChooser();
+        fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        fc.setAcceptAllFileFilterUsed(true);
+
+        menuBar = new JMenuBar();
+        menu = new JMenu("File");
+        openMenuItem = new JMenuItem("Open Images in Folder");
+        openMenuItem.addActionListener(actionEvent -> {
+            int ret = fc.showOpenDialog(frame);
+            if (ret == JFileChooser.APPROVE_OPTION) {
+                File selected = fc.getSelectedFile();
+                //TODO load up the images in the dir
+                File[] found = selected.listFiles(file -> {
+                    String name = file.getName().toLowerCase();
+                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif"));
+                });
+                if (found != null) {
+                    filesInDir = Arrays.asList(found);
+                } else {
+                    filesInDir = new ArrayList<>();
+                }
+                filesInDir.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+                totalImagesLabel.setText(String.valueOf(filesInDir.size()));
+                imgIdx = 0;
+                currImageTextField.setText(String.valueOf(imgIdx));
+                updateImg();
+            }
+        });
+        menu.add(openMenuItem);
+        openFolderMenuItem = new JMenuItem("Pick Base Folder");
+        openFolderMenuItem.addActionListener(actionEvent -> {
+            int ret = fc.showOpenDialog(frame);
+            if (ret == JFileChooser.APPROVE_OPTION) {
+                File selected = fc.getSelectedFile();
+                DefaultMutableTreeNode root = new DefaultMutableTreeNode(new FileNode(selected));
+                DefaultTreeModel model = new DefaultTreeModel(root);
+                fileTree.setModel(model);
+                CreateChildNodes ccn = new CreateChildNodes(selected, root);
+                new Thread(ccn).start();
+            }
+        });
+        menu.add(openFolderMenuItem);
+        menu.addSeparator();
+        exitMenuItem = new JMenuItem("Exit");
+        menu.add(exitMenuItem);
+        menuBar.add(menu);
+        menuHelp = new JMenu("Help");
+        helpMenuItem = new JMenuItem("Help");
+        menuHelp.add(helpMenuItem);
+        aboutMenuItem = new JMenuItem("About");
+        menuHelp.add(aboutMenuItem);
+        menuBar.add(menuHelp);
+        frame.setJMenuBar(menuBar);
         mainSplit.setDividerLocation(300);
 
         File fileRoot = new File("/home/kobold/Desktop");
         DefaultMutableTreeNode root = new DefaultMutableTreeNode(new FileNode(fileRoot));
         DefaultTreeModel model = new DefaultTreeModel(root);
         fileTree.setModel(model);
-        fileTree.expandRow(0);
-        fileTree.updateUI();
-//        fileTree.expandPath(new TreePath(root));
+        DefaultTreeCellRenderer cellRenderer = new DefaultTreeCellRenderer();
+        cellRenderer.setLeafIcon(null);
+        fileTree.setCellRenderer(cellRenderer);
+        fileTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+        //TODO expand one folder down from root - need to run AFTER running the thread that populates it
+//        DefaultMutableTreeNode currentNode = root.getNextNode();
+//        do {
+//            if (currentNode.getLevel() == 1)
+//                fileTree.expandPath(new TreePath(currentNode.getPath()));
+//            currentNode = currentNode.getNextNode();
+//        } while (currentNode != null);
+//        fileTree.scrollPathToVisible(new TreePath(root.getPath()));
+//        fileTree.expandRow(0);
 
         CreateChildNodes ccn = new CreateChildNodes(fileRoot, root);
         new Thread(ccn).start();
 
-//        try {
-//            currPic = ImageIO.read(new File("/home/kobold/Desktop/Motherload_32_pt2_export (1).gif"));
-//        } catch (IOException e) {
-//            throw new RuntimeException(e);
-//        }
+        nextButton.addActionListener(actionEvent -> {
+            if (filesInDir.isEmpty()) {
+                return;
+            }
+            if (imgIdx < filesInDir.size()) {
+                imgIdx += 1;
+            } else {
+                imgIdx = 0;
+            }
+            updateImg();
+        });
+        prevButton.addActionListener(actionEvent -> {
+            if (filesInDir.isEmpty()) {
+                return;
+            }
+            if (imgIdx > 0) {
+                imgIdx -= 1;
+            } else {
+                imgIdx = filesInDir.size() - 1;
+            }
+            updateImg();
+        });
+        currImageTextField.addActionListener(actionEvent -> {
+            //TODO maybe only after user mouses away?
+            updateImg();
+        });
+        sortOrderComboBox.addActionListener(actionEvent -> {
+            String sortOrder = (String) sortOrderComboBox.getSelectedItem();
+            if (Objects.equals(sortOrder, "Name")) {
+                filesInDir.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+            } else if (Objects.equals(sortOrder, "Date")) {
+                //TODO catch int overflow
+                filesInDir.sort((file, t1) -> Math.toIntExact(file.lastModified() - t1.lastModified()));
+            } else if (Objects.equals(sortOrder, "Random")) {
+                Collections.shuffle(filesInDir);
+            }
+        });
+        renameTextField.addActionListener(actionEvent -> {
+            //TODO maybe only after user mouses away?
+            File oldName = filesInDir.get(imgIdx);
+            File newName = new File(oldName.getPath().replace(oldName.getName(), renameTextField.getText()));
+            //TODO allow undo
+            filesInDir.get(imgIdx).renameTo(newName);
+        });
+        deleteButton.addActionListener(actionEvent -> {
+            //TODO allow undo
+            //TODO implement
+//            filesInDir.get(imgIdx).delete();
+            filesInDir.remove(imgIdx);
+            if (imgIdx >= filesInDir.size()) {
+                imgIdx = 0;
+            }
+            updateImg();
+        });
+        undoButton.addActionListener(actionEvent -> {
+            //TODO implement
+        });
+        fileTree.addTreeSelectionListener(treeSelectionEvent -> {
+            //move the current image to the selected folder and advance to next image
+            //TODO allow undo
+            //TODO implement
+            File toMove = filesInDir.get(imgIdx);
+//            Files.move(toMove.getPath(), fileTree.getSelectionPath());
+            filesInDir.remove(imgIdx);
+            if (imgIdx >= filesInDir.size()) {
+                imgIdx = 0;
+            }
+            updateImg();
+        });
+
         imageLabel.addComponentListener(new ComponentListener() {
             @Override
             public void componentResized(ComponentEvent componentEvent) {
-                Dimension d = imageLabel.getSize();
-                ImageIcon imgIcon = new ImageIcon("/home/kobold/Desktop/Motherload_32_pt2_export (1).gif");
-                imageLabel.setIcon(imgIcon);
-                //TODO more logic for widescreen images going off the screen when the label isn't wide enough.
-                if (imgIcon.getImage().getWidth(null) > imgIcon.getImage().getHeight(null)) {
-                    imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
-                } else {
-                    imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
-                }
-                //let the user resize the window and shrink the image
+//                Dimension d = imageLabel.getSize();
+//                ImageIcon imgIcon = new ImageIcon("/home/kobold/Desktop/Motherload_32_pt2_export (1).gif");
+//                imageLabel.setIcon(imgIcon);
+//                //TODO more logic for widescreen images going off the screen when the label isn't wide enough.
+//                if (imgIcon.getImage().getWidth(null) > imgIcon.getImage().getHeight(null)) {
+//                    imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
+//                } else {
+//                    imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
+//                }
+                updateImg();
+                //lets the user resize the window and shrink the image
                 imageLabel.setMinimumSize(new Dimension(100, 100));
             }
 
@@ -93,31 +226,29 @@ public class MainWindow {
     }
 
     public static void main(String[] args) {
-        JFrame frame = new JFrame("PicSort");
+        frame = new JFrame("PicSort");
         frame.setContentPane(new MainWindow().panel1);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 //        frame.pack();
         frame.setSize(1280, 720);
         frame.setVisible(true);
-
-        menuBar = new JMenuBar();
-        menu = new JMenu("File");
-        openMenuItem = new JMenuItem("Open Folder");
-        menu.add(openMenuItem);
-        menu.addSeparator();
-        exitMenuItem = new JMenuItem("Exit");
-        menu.add(exitMenuItem);
-        menuBar.add(menu);
-        menuHelp = new JMenu("Help");
-        helpMenuItem = new JMenuItem("Help");
-        menuHelp.add(helpMenuItem);
-        aboutMenuItem = new JMenuItem("About");
-        menuHelp.add(aboutMenuItem);
-        menuBar.add(menuHelp);
-        frame.setJMenuBar(menuBar);
     }
 
-    public class CreateChildNodes implements Runnable {
+    public void updateImg() {
+        Dimension d = imageLabel.getSize();
+        ImageIcon imgIcon = new ImageIcon(filesInDir.get(imgIdx).getPath());
+        imageLabel.setIcon(imgIcon);
+        //TODO more logic for widescreen images going off the screen when the label isn't wide enough.
+        if (imgIcon.getImage().getWidth(null) > imgIcon.getImage().getHeight(null)) {
+            imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
+        } else {
+            imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
+        }
+        currImageTextField.setText(String.valueOf(imgIdx));
+        renameTextField.setText(filesInDir.get(imgIdx).getName());
+    }
+
+    public static class CreateChildNodes implements Runnable {
         private final DefaultMutableTreeNode root;
         private final File fileRoot;
 
@@ -136,18 +267,21 @@ public class MainWindow {
             if (files == null) return;
 
             //only dirs
-            //TODO make leafs not show up as files
+            ArrayList<DefaultMutableTreeNode> level = new ArrayList<>();
+            //FIXME only picks up a few folders when pointed at sdb, why?
             for (File file : files) {
                 if (file.isDirectory()) {
                     DefaultMutableTreeNode childNode = new DefaultMutableTreeNode(new FileNode(file));
-                    node.add(childNode);
+                    level.add(childNode);
                     createChildren(file, childNode);
                 }
             }
+            level.sort((a, b) -> a.toString().compareToIgnoreCase(b.toString()));
+            level.forEach(node::add);
         }
     }
 
-    public class FileNode {
+    public static class FileNode {
         private final File file;
 
         public FileNode(File file) {
@@ -164,54 +298,4 @@ public class MainWindow {
             }
         }
     }
-
-    /**
-     * need a custom class for gifs to animate
-     * https://stackoverflow.com/questions/10836832/show-an-animated-bg-in-swing
-     */
-    public class ImagePanel extends JPanel {
-
-        private final Image image;
-
-        public ImagePanel(Image image) {
-            super();
-            this.image = image;
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            g.drawImage(this.image, 0, 0, getWidth(), getHeight(), this);
-        }
-    }
-
-  /*  public void paintComponent(Graphics page)
-    {
-        super.paintComponent(page);
-
-        //img from ImageIO
-        int h = img.getHeight(null);
-        int w = img.getWidth(null);
-
-        // Scale Horizontally:
-        if ( w > this.getWidth() )
-        {
-            img = img.getScaledInstance( getWidth(), -1, Image.SCALE_DEFAULT );
-            h = img.getHeight(null);
-        }
-
-        // Scale Vertically:
-        if ( h > this.getHeight() )
-        {
-            img = img.getScaledInstance( -1, getHeight(), Image.SCALE_DEFAULT );
-        }
-
-        // Center Images
-        int x = (getWidth() - img.getWidth(null)) / 2;
-        int y = (getHeight() - img.getHeight(null)) / 2;
-
-        // Draw it
-        page.drawImage( img, x, y, null );
-    }*/
-
 }
