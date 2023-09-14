@@ -6,6 +6,9 @@ import javax.swing.tree.TreeSelectionModel;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -131,7 +134,7 @@ public class MainWindow {
 
         nextButton.setMnemonic(KeyEvent.VK_RIGHT);
         nextButton.addActionListener(actionEvent -> {
-            if (filesInDir.isEmpty()) return;
+            if (filesInDir == null || filesInDir.isEmpty()) return;
             if (imgIdx < filesInDir.size()) {
                 imgIdx += 1;
             } else {
@@ -141,7 +144,7 @@ public class MainWindow {
         });
         prevButton.setMnemonic(KeyEvent.VK_LEFT);
         prevButton.addActionListener(actionEvent -> {
-            if (filesInDir.isEmpty()) return;
+            if (filesInDir == null || filesInDir.isEmpty()) return;
             if (imgIdx > 0) {
                 imgIdx -= 1;
             } else {
@@ -166,7 +169,7 @@ public class MainWindow {
         sortOrderComboBox.addActionListener(new ChangeSort());
         sortTypeComboBox.addActionListener(new ChangeSort());
         renameButton.addActionListener(actionEvent -> {
-            if (filesInDir.isEmpty()) return;
+            if (filesInDir == null || filesInDir.isEmpty()) return;
             File oldName = filesInDir.get(imgIdx);
             File newName = new File(oldName.getPath().replace(oldName.getName(), renameTextField.getText()));
             boolean renamed = filesInDir.get(imgIdx).renameTo(newName);
@@ -175,7 +178,7 @@ public class MainWindow {
             }
         });
         deleteButton.addActionListener(actionEvent -> {
-            if (filesInDir.isEmpty()) return;
+            if (filesInDir == null || filesInDir.isEmpty()) return;
             boolean deleted = Desktop.getDesktop().moveToTrash(filesInDir.get(imgIdx));
             if (!deleted) {
                 JOptionPane.showMessageDialog(frame, "ERROR! Could not delete file.");
@@ -192,16 +195,21 @@ public class MainWindow {
             //TODO implement. Need to keep track of file moves and renames. Dunno how to undo a delete.
         });
         fileTree.addTreeSelectionListener(treeSelectionEvent -> {
-            if (filesInDir.isEmpty()) return;
+            if (filesInDir == null || filesInDir.isEmpty()) return;
             //move the current image to the selected folder and advance to next image
-            //TODO implement. Need to be able to convert a TreePath into a file Path. Might need to make a custom
-//            File toMove = filesInDir.get(imgIdx);
-//            Files.move(toMove.getPath(), fileTree.getSelectionPath());
-//            filesInDir.remove(imgIdx);
-//            if (imgIdx >= filesInDir.size()) {
-//                imgIdx = 0;
-//            }
-//            updateImg();
+            DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) fileTree.getLastSelectedPathComponent();
+            File toMove = filesInDir.get(imgIdx);
+            try {
+                Files.move(toMove.toPath(), (Path) selectedNode.getUserObject());
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(frame, "ERROR! Couldn't move file.");
+                return;
+            }
+            filesInDir.remove(imgIdx);
+            if (imgIdx >= filesInDir.size()) {
+                imgIdx = 0;
+            }
+            updateImg();
             totalImagesLabel.setText("/" + filesInDir.size());
         });
 
@@ -281,10 +289,11 @@ public class MainWindow {
 
             //only dirs
             ArrayList<DefaultMutableTreeNode> level = new ArrayList<>();
-            //FIXME only picks up a few folders when pointed at sdb, why?
+            //FIXME only picks up a few folders when pointed at sdb, why? Probably permissions?
             for (File file : files) {
                 if (file.isDirectory()) {
                     DefaultMutableTreeNode childNode = new DefaultMutableTreeNode(new FileNode(file));
+                    childNode.setUserObject(file.toPath());
                     level.add(childNode);
                     createChildren(file, childNode);
                 }
