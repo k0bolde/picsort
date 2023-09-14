@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="picsort:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/picsort_jar</output-path>
+    <root id="archive" name="picsort.jar">
+      <element id="module-output" name="picsort" />
+    </root>
+  </artifact>
+</component>

@@ -4,8 +4,7 @@ import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeSelectionModel;
 import java.awt.*;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
+import java.awt.event.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,6 +43,8 @@ public class MainWindow {
     private JTextField currImageTextField;
     private JLabel totalImagesLabel;
     private JLabel imageLabel;
+    private JComboBox<String> sortTypeComboBox;
+    private JButton renameButton;
     private java.util.List<File> filesInDir;
     private int imgIdx = 0;
 
@@ -59,7 +60,6 @@ public class MainWindow {
             int ret = fc.showOpenDialog(frame);
             if (ret == JFileChooser.APPROVE_OPTION) {
                 File selected = fc.getSelectedFile();
-                //TODO load up the images in the dir
                 File[] found = selected.listFiles(file -> {
                     String name = file.getName().toLowerCase();
                     return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif"));
@@ -70,7 +70,7 @@ public class MainWindow {
                     filesInDir = new ArrayList<>();
                 }
                 filesInDir.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-                totalImagesLabel.setText(String.valueOf(filesInDir.size()));
+                totalImagesLabel.setText("/" + filesInDir.size());
                 imgIdx = 0;
                 currImageTextField.setText(String.valueOf(imgIdx));
                 updateImg();
@@ -86,18 +86,27 @@ public class MainWindow {
                 DefaultTreeModel model = new DefaultTreeModel(root);
                 fileTree.setModel(model);
                 CreateChildNodes ccn = new CreateChildNodes(selected, root);
-                new Thread(ccn).start();
+//                new Thread(ccn).start();
+                ccn.run();
+                fileTree.expandRow(0);
             }
         });
         menu.add(openFolderMenuItem);
         menu.addSeparator();
         exitMenuItem = new JMenuItem("Exit");
+        exitMenuItem.addActionListener(actionEvent -> System.exit(0));
         menu.add(exitMenuItem);
         menuBar.add(menu);
         menuHelp = new JMenu("Help");
         helpMenuItem = new JMenuItem("Help");
+        helpMenuItem.addActionListener(actionEvent -> JOptionPane.showMessageDialog(frame, "Basic usage:"));
         menuHelp.add(helpMenuItem);
         aboutMenuItem = new JMenuItem("About");
+        aboutMenuItem.addActionListener(actionEvent -> JOptionPane.showMessageDialog(frame, """
+                Made by k0bold
+                I made this because I have a large collection of furry art that's gotten disorganized over the years and most relevant software is focused on photography.
+                https://k0bold.com
+                https://github.com/k0bolde"""));
         menuHelp.add(aboutMenuItem);
         menuBar.add(menuHelp);
         frame.setJMenuBar(menuBar);
@@ -109,25 +118,20 @@ public class MainWindow {
         fileTree.setModel(model);
         DefaultTreeCellRenderer cellRenderer = new DefaultTreeCellRenderer();
         cellRenderer.setLeafIcon(null);
+        cellRenderer.setOpenIcon(null);
+        cellRenderer.setClosedIcon(null);
         fileTree.setCellRenderer(cellRenderer);
         fileTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
-        //TODO expand one folder down from root - need to run AFTER running the thread that populates it
-//        DefaultMutableTreeNode currentNode = root.getNextNode();
-//        do {
-//            if (currentNode.getLevel() == 1)
-//                fileTree.expandPath(new TreePath(currentNode.getPath()));
-//            currentNode = currentNode.getNextNode();
-//        } while (currentNode != null);
-//        fileTree.scrollPathToVisible(new TreePath(root.getPath()));
-//        fileTree.expandRow(0);
 
         CreateChildNodes ccn = new CreateChildNodes(fileRoot, root);
-        new Thread(ccn).start();
+        ccn.run();
+        //TODO change back to threading
+//        new Thread(ccn).start();
+        fileTree.expandRow(0);
 
+        nextButton.setMnemonic(KeyEvent.VK_RIGHT);
         nextButton.addActionListener(actionEvent -> {
-            if (filesInDir.isEmpty()) {
-                return;
-            }
+            if (filesInDir.isEmpty()) return;
             if (imgIdx < filesInDir.size()) {
                 imgIdx += 1;
             } else {
@@ -135,10 +139,9 @@ public class MainWindow {
             }
             updateImg();
         });
+        prevButton.setMnemonic(KeyEvent.VK_LEFT);
         prevButton.addActionListener(actionEvent -> {
-            if (filesInDir.isEmpty()) {
-                return;
-            }
+            if (filesInDir.isEmpty()) return;
             if (imgIdx > 0) {
                 imgIdx -= 1;
             } else {
@@ -147,51 +150,59 @@ public class MainWindow {
             updateImg();
         });
         currImageTextField.addActionListener(actionEvent -> {
-            //TODO maybe only after user mouses away?
-            updateImg();
-        });
-        sortOrderComboBox.addActionListener(actionEvent -> {
-            String sortOrder = (String) sortOrderComboBox.getSelectedItem();
-            if (Objects.equals(sortOrder, "Name")) {
-                filesInDir.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-            } else if (Objects.equals(sortOrder, "Date")) {
-                //TODO catch int overflow
-                filesInDir.sort((file, t1) -> Math.toIntExact(file.lastModified() - t1.lastModified()));
-            } else if (Objects.equals(sortOrder, "Random")) {
-                Collections.shuffle(filesInDir);
+            try {
+                int userNum = Integer.parseInt(currImageTextField.getText());
+                if (userNum >= 0 && userNum < filesInDir.size() - 1) {
+                    imgIdx = userNum;
+                } else {
+                    //just throw the same thing as a bad int so we can reuse that code
+                    throw new NumberFormatException();
+                }
+                updateImg();
+            } catch (NumberFormatException e) {
+                currImageTextField.setText(String.valueOf(imgIdx));
             }
         });
-        renameTextField.addActionListener(actionEvent -> {
-            //TODO maybe only after user mouses away?
+        sortOrderComboBox.addActionListener(new ChangeSort());
+        sortTypeComboBox.addActionListener(new ChangeSort());
+        renameButton.addActionListener(actionEvent -> {
+            if (filesInDir.isEmpty()) return;
             File oldName = filesInDir.get(imgIdx);
             File newName = new File(oldName.getPath().replace(oldName.getName(), renameTextField.getText()));
-            //TODO allow undo
-            filesInDir.get(imgIdx).renameTo(newName);
+            boolean renamed = filesInDir.get(imgIdx).renameTo(newName);
+            if (!renamed) {
+                JOptionPane.showMessageDialog(frame, "ERROR! Could not rename file.");
+            }
         });
         deleteButton.addActionListener(actionEvent -> {
-            //TODO allow undo
-            //TODO implement
-//            filesInDir.get(imgIdx).delete();
+            if (filesInDir.isEmpty()) return;
+            boolean deleted = Desktop.getDesktop().moveToTrash(filesInDir.get(imgIdx));
+            if (!deleted) {
+                JOptionPane.showMessageDialog(frame, "ERROR! Could not delete file.");
+                return;
+            }
             filesInDir.remove(imgIdx);
+            totalImagesLabel.setText("/" + filesInDir.size());
             if (imgIdx >= filesInDir.size()) {
                 imgIdx = 0;
             }
             updateImg();
         });
         undoButton.addActionListener(actionEvent -> {
-            //TODO implement
+            //TODO implement. Need to keep track of file moves and renames. Dunno how to undo a delete.
         });
         fileTree.addTreeSelectionListener(treeSelectionEvent -> {
+            if (filesInDir.isEmpty()) return;
             //move the current image to the selected folder and advance to next image
-            //TODO allow undo
-            //TODO implement
-            File toMove = filesInDir.get(imgIdx);
+            //TODO implement. Need to be able to convert a TreePath into a file Path. Might need to make a custom
+//            File toMove = filesInDir.get(imgIdx);
 //            Files.move(toMove.getPath(), fileTree.getSelectionPath());
-            filesInDir.remove(imgIdx);
-            if (imgIdx >= filesInDir.size()) {
-                imgIdx = 0;
-            }
-            updateImg();
+//            filesInDir.remove(imgIdx);
+//            if (imgIdx >= filesInDir.size()) {
+//                imgIdx = 0;
+//            }
+//            updateImg();
+            totalImagesLabel.setText("/" + filesInDir.size());
         });
 
         imageLabel.addComponentListener(new ComponentListener() {
@@ -232,14 +243,16 @@ public class MainWindow {
 //        frame.pack();
         frame.setSize(1280, 720);
         frame.setVisible(true);
+        frame.setLocationRelativeTo(null);
     }
 
     public void updateImg() {
+        if (filesInDir == null || filesInDir.isEmpty()) return;
         Dimension d = imageLabel.getSize();
         ImageIcon imgIcon = new ImageIcon(filesInDir.get(imgIdx).getPath());
         imageLabel.setIcon(imgIcon);
-        //TODO more logic for widescreen images going off the screen when the label isn't wide enough.
-        if (imgIcon.getImage().getWidth(null) > imgIcon.getImage().getHeight(null)) {
+        //TODO more logic for widescreen images going off the screen when the label isn't wide enough but the smallest dimension is still height.
+        if (imgIcon.getIconWidth() > imgIcon.getIconHeight()) {
             imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
         } else {
             imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
@@ -291,10 +304,29 @@ public class MainWindow {
         @Override
         public String toString() {
             String name = file.getName();
-            if (name.equals("")) {
+            if (name.isEmpty()) {
                 return file.getAbsolutePath();
             } else {
                 return name;
+            }
+        }
+    }
+
+    /**
+     * It's own class so we can reuse it for both sort comboboxes
+     */
+    public class ChangeSort implements ActionListener {
+        public void actionPerformed(ActionEvent actionEvent) {
+            //we know this should never be null because we fill it out
+            switch ((String) sortOrderComboBox.getSelectedItem()) {
+                case "Name" -> filesInDir.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+                case "Date" ->
+                    //TODO catch int overflow
+                        filesInDir.sort((file, t1) -> Math.toIntExact(file.lastModified() - t1.lastModified()));
+                case "Random" -> Collections.shuffle(filesInDir);
+            }
+            if (Objects.equals(sortTypeComboBox.getSelectedItem(), "Desc")) {
+                Collections.reverse(filesInDir);
             }
         }
     }
