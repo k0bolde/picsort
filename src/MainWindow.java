@@ -1,3 +1,4 @@
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
@@ -9,13 +10,17 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
-//on start, populate treelist with the folder structure of the computer
-//  remember last root folder?
-//
+//Work Units
+//browse images - open folder, next, prev
+//rename, delete
+//move by clicking the tree
+//browser ordering
+//png, jpg, jpeg, gif, animated gif, webp work - animated webp shows error pic
 
 
 public class MainWindow {
@@ -50,8 +55,11 @@ public class MainWindow {
     private JButton renameButton;
     private java.util.List<File> filesInDir;
     private int imgIdx = 0;
+    private String lastSortOrder = "Asc";
+    private String lastSort = "Date";
 
     public MainWindow() {
+//        System.out.println(Arrays.toString(ImageIO.getReaderFileSuffixes()));
         fc = new JFileChooser();
         fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         fc.setAcceptAllFileFilterUsed(true);
@@ -65,7 +73,7 @@ public class MainWindow {
                 File selected = fc.getSelectedFile();
                 File[] found = selected.listFiles(file -> {
                     String name = file.getName().toLowerCase();
-                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif"));
+                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".bmp") || name.endsWith(".tiff") || name.endsWith(".tif") || name.endsWith(".wbmp")|| name.endsWith(".webp"));
                 });
                 if (found != null) {
                     filesInDir = Arrays.asList(found);
@@ -76,6 +84,8 @@ public class MainWindow {
                 totalImagesLabel.setText("/" + filesInDir.size());
                 imgIdx = 0;
                 currImageTextField.setText(String.valueOf(imgIdx));
+                sortTypeComboBox.setSelectedIndex(0);
+                sortOrderComboBox.setSelectedIndex(0);
                 updateImg();
             }
         });
@@ -95,6 +105,7 @@ public class MainWindow {
             }
         });
         menu.add(openFolderMenuItem);
+        //TODO menu option for controlling folder depth
         menu.addSeparator();
         exitMenuItem = new JMenuItem("Exit");
         exitMenuItem.addActionListener(actionEvent -> System.exit(0));
@@ -177,6 +188,7 @@ public class MainWindow {
                 JOptionPane.showMessageDialog(frame, "ERROR! Could not rename file.");
             }
         });
+        deleteButton.setMnemonic(KeyEvent.VK_DELETE);
         deleteButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
             boolean deleted = Desktop.getDesktop().moveToTrash(filesInDir.get(imgIdx));
@@ -197,10 +209,12 @@ public class MainWindow {
         fileTree.addTreeSelectionListener(treeSelectionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
             //move the current image to the selected folder and advance to next image
-            DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) fileTree.getLastSelectedPathComponent();
+            PathTreeNode selectedNode = (PathTreeNode) fileTree.getLastSelectedPathComponent();
             File toMove = filesInDir.get(imgIdx);
             try {
-                Files.move(toMove.toPath(), (Path) selectedNode.getUserObject());
+                //might need:
+                //Files.copy(file, target.resolve(source.relativize(file))); //target and source are paths
+                Files.move(toMove.toPath(), selectedNode.getFilePath().resolve(toMove.getName()), StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(frame, "ERROR! Couldn't move file.");
                 return;
@@ -216,15 +230,34 @@ public class MainWindow {
         imageLabel.addComponentListener(new ComponentListener() {
             @Override
             public void componentResized(ComponentEvent componentEvent) {
-//                Dimension d = imageLabel.getSize();
-//                ImageIcon imgIcon = new ImageIcon("/home/kobold/Desktop/Motherload_32_pt2_export (1).gif");
-//                imageLabel.setIcon(imgIcon);
-//                //TODO more logic for widescreen images going off the screen when the label isn't wide enough.
-//                if (imgIcon.getImage().getWidth(null) > imgIcon.getImage().getHeight(null)) {
-//                    imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
-//                } else {
-//                    imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
-//                }
+                if (filesInDir == null || filesInDir.isEmpty()) return;
+                Dimension d = imageLabel.getSize();
+//                File imagePath = new File("/home/kobold/Desktop/1.webp");
+                File imagePath = filesInDir.get(imgIdx);
+                ImageIcon imgIcon;
+                if (imagePath.getName().endsWith(".webp")) {
+                    //Need to use imageIO for webp, need to use ImageIcon constructor for gif
+                    try {
+                        imgIcon = new ImageIcon(ImageIO.read(imagePath));
+                    } catch (IOException e) {
+                        if (e.getMessage().equals("Decode returned code UnsupportedFeature")) {
+                            //set image to a builtin pic saying
+                            imgIcon = new ImageIcon("./assets/animatedwebperror.png");
+                        } else {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                } else{
+                    imgIcon = new ImageIcon(imagePath.getPath());
+                }
+                imageLabel.setIcon(imgIcon);
+                //TODO more logic for widescreen images going off the screen when the label isn't wide enough.
+                //TODO don't expand images past their res if the window is big enough
+                if (imgIcon.getImage().getWidth(null) > imgIcon.getImage().getHeight(null)) {
+                    imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
+                } else {
+                    imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
+                }
                 updateImg();
                 //lets the user resize the window and shrink the image
                 imageLabel.setMinimumSize(new Dimension(100, 100));
@@ -280,26 +313,56 @@ public class MainWindow {
 
         @Override
         public void run() {
-            createChildren(fileRoot, root);
+            createChildren(fileRoot, root, 0);
         }
 
-        private void createChildren(File fileRoot, DefaultMutableTreeNode node) {
-            File[] files = fileRoot.listFiles();
-            if (files == null) return;
-
+        //TODO depth limit? so it doesn't freeze when loading
+        private void createChildren(File fileRoot, DefaultMutableTreeNode node, int depth) {
+            if (depth > 5) return;
             //only dirs
             ArrayList<DefaultMutableTreeNode> level = new ArrayList<>();
-            //FIXME only picks up a few folders when pointed at sdb, why? Probably permissions?
+//            try {
+//                Files.walkFileTree(fileRoot.toPath(), EnumSet.of(FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE, new SimpleFileVisitor<>() {
+//                    @Override
+//                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+//                        if (Files.isDirectory(file)) {
+//                            PathTreeNode childNode = new PathTreeNode(new FileNode(file.toFile()));
+//                            childNode.setFilePath(file);
+//                            level.add(childNode);
+//                        }
+//                        return FileVisitResult.CONTINUE;
+//                    }
+//                });
+//            } catch (IOException e) {
+//                throw new RuntimeException(e);
+//            }
+            File[] files = fileRoot.listFiles(File::isDirectory);
+            if (files == null) return;
+//            FIXME only picks up a few folders when pointed at sdb, why? Probably permissions?
             for (File file : files) {
-                if (file.isDirectory()) {
-                    DefaultMutableTreeNode childNode = new DefaultMutableTreeNode(new FileNode(file));
-                    childNode.setUserObject(file.toPath());
-                    level.add(childNode);
-                    createChildren(file, childNode);
-                }
+                PathTreeNode childNode = new PathTreeNode(new FileNode(file));
+                childNode.setFilePath(file.toPath());
+                level.add(childNode);
+                createChildren(file, childNode, depth + 1);
             }
             level.sort((a, b) -> a.toString().compareToIgnoreCase(b.toString()));
             level.forEach(node::add);
+        }
+    }
+
+    public static class PathTreeNode extends DefaultMutableTreeNode {
+        private Path filePath;
+
+        public PathTreeNode(Object usrObj) {
+            super(usrObj);
+        }
+
+        public Path getFilePath() {
+            return filePath;
+        }
+
+        public void setFilePath(Path filePath) {
+            this.filePath = filePath;
         }
     }
 
@@ -326,17 +389,25 @@ public class MainWindow {
      */
     public class ChangeSort implements ActionListener {
         public void actionPerformed(ActionEvent actionEvent) {
+            if (filesInDir == null || filesInDir.isEmpty()) return;
+            //TODO set the imgIdx to the old current image, need to search the list for it in the new order
             //we know this should never be null because we fill it out
-            switch ((String) sortOrderComboBox.getSelectedItem()) {
-                case "Name" -> filesInDir.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-                case "Date" ->
-                    //TODO catch int overflow
-                        filesInDir.sort((file, t1) -> Math.toIntExact(file.lastModified() - t1.lastModified()));
-                case "Random" -> Collections.shuffle(filesInDir);
+            if (!Objects.equals(lastSort, sortOrderComboBox.getSelectedItem())) {
+                lastSort = (String) sortOrderComboBox.getSelectedItem();
+                lastSortOrder = "Asc";
+                switch ((String) sortOrderComboBox.getSelectedItem()) {
+                    case "Name" -> filesInDir.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+                    case "Date" ->
+                        //TODO catch int overflow
+                            filesInDir.sort((file, t1) -> Math.toIntExact(file.lastModified() - t1.lastModified()));
+                    case "Random" -> Collections.shuffle(filesInDir);
+                }
             }
-            if (Objects.equals(sortTypeComboBox.getSelectedItem(), "Desc")) {
+            if (!Objects.equals(sortTypeComboBox.getSelectedItem(), lastSortOrder)) {
+                lastSortOrder = (String) sortTypeComboBox.getSelectedItem();
                 Collections.reverse(filesInDir);
             }
+            updateImg();
         }
     }
 }

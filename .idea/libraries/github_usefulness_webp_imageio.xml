@@ -1,0 +1,15 @@
+<component name="libraryTable">
+  <library name="github.usefulness.webp.imageio" type="repository">
+    <properties maven-id="com.github.usefulness:webp-imageio:0.4.1" />
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/webp-imageio-0.4.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/kotlin-stdlib-jdk8-1.8.22.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/kotlin-stdlib-1.8.22.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/kotlin-stdlib-common-1.8.22.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/annotations-13.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/kotlin-stdlib-jdk7-1.8.22.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
