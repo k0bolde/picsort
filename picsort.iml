@@ -8,5 +8,6 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="github.usefulness.webp.imageio" level="project" />
+    <orderEntry type="library" name="uk.co.caprica.vlcj" level="project" />
   </component>
 </module>

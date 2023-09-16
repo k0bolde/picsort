@@ -1,3 +1,9 @@
+import uk.co.caprica.vlcj.media.MediaRef;
+import uk.co.caprica.vlcj.media.TrackType;
+import uk.co.caprica.vlcj.player.base.MediaPlayer;
+import uk.co.caprica.vlcj.player.base.MediaPlayerEventListener;
+import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -35,6 +41,8 @@ public class MainWindow {
     private final JMenuItem exitMenuItem;
     private final JMenuItem openFolderMenuItem;
     private final JFileChooser fc;
+    //dunno why it needs callbackplayer but it errors out otherwise
+    private final CallbackMediaPlayerComponent mediaPlayer;
     private JPanel panel1;
     private JButton deleteButton;
     private JTree fileTree;
@@ -57,12 +65,144 @@ public class MainWindow {
     private int imgIdx = 0;
     private String lastSortOrder = "Asc";
     private String lastSort = "Date";
+    private boolean mediaPlayerShowing = true;
 
     public MainWindow() {
-//        System.out.println(Arrays.toString(ImageIO.getReaderFileSuffixes()));
+        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                mediaPlayer.release();
+                System.exit(0);
+            }
+        });
         fc = new JFileChooser();
         fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         fc.setAcceptAllFileFilterUsed(true);
+
+        mediaPlayer = new CallbackMediaPlayerComponent();
+        mediaPlayer.mediaPlayer().events().addMediaPlayerEventListener(new MediaPlayerEventListener() {
+            @Override
+            public void finished(MediaPlayer mediaPlayer) {
+                //Loop videos
+                SwingUtilities.invokeLater(() -> mediaPlayer.media().play(mediaPlayer.media().info().mrl()));
+            }
+
+            @Override
+            public void error(MediaPlayer mediaPlayer) {
+                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, "ERROR! Couldn't display media " + mediaPlayer.media().info().mrl()));
+            }
+
+            @Override
+            public void mediaChanged(MediaPlayer mediaPlayer, MediaRef mediaRef) {
+            }
+
+            @Override
+            public void opening(MediaPlayer mediaPlayer) {
+            }
+
+            @Override
+            public void buffering(MediaPlayer mediaPlayer, float v) {
+            }
+
+            @Override
+            public void playing(MediaPlayer mediaPlayer) {
+            }
+
+            @Override
+            public void paused(MediaPlayer mediaPlayer) {
+            }
+
+            @Override
+            public void stopped(MediaPlayer mediaPlayer) {
+            }
+
+            @Override
+            public void forward(MediaPlayer mediaPlayer) {
+            }
+
+            @Override
+            public void backward(MediaPlayer mediaPlayer) {
+            }
+
+
+            @Override
+            public void timeChanged(MediaPlayer mediaPlayer, long l) {
+            }
+
+            @Override
+            public void positionChanged(MediaPlayer mediaPlayer, float v) {
+            }
+
+            @Override
+            public void seekableChanged(MediaPlayer mediaPlayer, int i) {
+            }
+
+            @Override
+            public void pausableChanged(MediaPlayer mediaPlayer, int i) {
+            }
+
+            @Override
+            public void titleChanged(MediaPlayer mediaPlayer, int i) {
+            }
+
+            @Override
+            public void snapshotTaken(MediaPlayer mediaPlayer, String s) {
+            }
+
+            @Override
+            public void lengthChanged(MediaPlayer mediaPlayer, long l) {
+            }
+
+            @Override
+            public void videoOutput(MediaPlayer mediaPlayer, int i) {
+            }
+
+            @Override
+            public void scrambledChanged(MediaPlayer mediaPlayer, int i) {
+            }
+
+            @Override
+            public void elementaryStreamAdded(MediaPlayer mediaPlayer, TrackType trackType, int i) {
+            }
+
+            @Override
+            public void elementaryStreamDeleted(MediaPlayer mediaPlayer, TrackType trackType, int i) {
+            }
+
+            @Override
+            public void elementaryStreamSelected(MediaPlayer mediaPlayer, TrackType trackType, int i) {
+            }
+
+            @Override
+            public void corked(MediaPlayer mediaPlayer, boolean b) {
+            }
+
+            @Override
+            public void muted(MediaPlayer mediaPlayer, boolean b) {
+            }
+
+            @Override
+            public void volumeChanged(MediaPlayer mediaPlayer, float v) {
+            }
+
+            @Override
+            public void audioDeviceChanged(MediaPlayer mediaPlayer, String s) {
+            }
+
+            @Override
+            public void chapterChanged(MediaPlayer mediaPlayer, int i) {
+            }
+
+
+            @Override
+            public void mediaPlayerReady(MediaPlayer mediaPlayer) {
+            }
+        });
+        mainSplit.remove(imageLabel);
+        mainSplit.add(mediaPlayer);
+        mainSplit.revalidate();
+        mainSplit.repaint();
 
         menuBar = new JMenuBar();
         menu = new JMenu("File");
@@ -73,7 +213,7 @@ public class MainWindow {
                 File selected = fc.getSelectedFile();
                 File[] found = selected.listFiles(file -> {
                     String name = file.getName().toLowerCase();
-                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".bmp") || name.endsWith(".tiff") || name.endsWith(".tif") || name.endsWith(".wbmp")|| name.endsWith(".webp"));
+                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".bmp") || name.endsWith(".tiff") || name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".webp") || name.endsWith(".mkv"));
                 });
                 if (found != null) {
                     filesInDir = Arrays.asList(found);
@@ -231,34 +371,7 @@ public class MainWindow {
             @Override
             public void componentResized(ComponentEvent componentEvent) {
                 if (filesInDir == null || filesInDir.isEmpty()) return;
-                Dimension d = imageLabel.getSize();
-//                File imagePath = new File("/home/kobold/Desktop/1.webp");
-                File imagePath = filesInDir.get(imgIdx);
-                ImageIcon imgIcon;
-                if (imagePath.getName().endsWith(".webp")) {
-                    //Need to use imageIO for webp, need to use ImageIcon constructor for gif
-                    try {
-                        imgIcon = new ImageIcon(ImageIO.read(imagePath));
-                    } catch (IOException e) {
-                        if (e.getMessage().equals("Decode returned code UnsupportedFeature")) {
-                            //set image to a builtin pic saying
-                            imgIcon = new ImageIcon("./assets/animatedwebperror.png");
-                        } else {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                } else{
-                    imgIcon = new ImageIcon(imagePath.getPath());
-                }
-                imageLabel.setIcon(imgIcon);
-                //TODO more logic for widescreen images going off the screen when the label isn't wide enough.
-                //TODO don't expand images past their res if the window is big enough
-                if (imgIcon.getImage().getWidth(null) > imgIcon.getImage().getHeight(null)) {
-                    imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
-                } else {
-                    imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
-                }
-                updateImg();
+                rescaleImageIcon();
                 //lets the user resize the window and shrink the image
                 imageLabel.setMinimumSize(new Dimension(100, 100));
             }
@@ -275,12 +388,17 @@ public class MainWindow {
             public void componentHidden(ComponentEvent componentEvent) {
             }
         });
+        filesInDir = new ArrayList<>();
+//        filesInDir.add(new File("/home/kobold/sdb/pics/porn/me!/2023/4/rep-openbrushd.gif"));
+//        filesInDir.add(new File("/home/kobold/Desktop/1.webp"));
+        filesInDir.add(new File("/home/kobold/Desktop/IMG_20230114_211628785.jpg"));
+//        filesInDir.add(new File("/home/kobold/Desktop/Salazzle and scolipede sex LQ.mp4"));
+        updateImg();
     }
 
     public static void main(String[] args) {
         frame = new JFrame("PicSort");
         frame.setContentPane(new MainWindow().panel1);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 //        frame.pack();
         frame.setSize(1280, 720);
         frame.setVisible(true);
@@ -289,17 +407,67 @@ public class MainWindow {
 
     public void updateImg() {
         if (filesInDir == null || filesInDir.isEmpty()) return;
+        String filename = filesInDir.get(imgIdx).getName().toLowerCase();
+        if (filename.endsWith(".gif")) {
+            //use imageIcon constructor
+            if (mediaPlayerShowing) {
+                mainSplit.remove(mediaPlayer);
+                mainSplit.add(imageLabel);
+                mainSplit.revalidate();
+                mainSplit.repaint();
+                mediaPlayerShowing = false;
+            }
+            ImageIcon imgIcon = new ImageIcon(filesInDir.get(imgIdx).getPath());
+            imageLabel.setIcon(imgIcon);
+            rescaleImageIcon();
+        } else if (filename.endsWith(".webp")) {
+            //use imageIO with imageIcon
+            if (mediaPlayerShowing) {
+                mainSplit.remove(mediaPlayer);
+                mainSplit.add(imageLabel);
+                mainSplit.revalidate();
+                mainSplit.repaint();
+                mediaPlayerShowing = false;
+            }
+            ImageIcon imgIcon;
+            try {
+                imgIcon = new ImageIcon(ImageIO.read(filesInDir.get(imgIdx)));
+            } catch (IOException e) {
+                if (e.getMessage().equals("Decode returned code UnsupportedFeature")) {
+                    //set image to a builtin pic saying
+                    imgIcon = new ImageIcon("./assets/animatedwebperror.png");
+                } else {
+                    throw new RuntimeException(e);
+                }
+            }
+            imageLabel.setIcon(imgIcon);
+            rescaleImageIcon();
+        } else {
+            //use vlcj
+            if (!mediaPlayerShowing) {
+                mainSplit.remove(imageLabel);
+                mainSplit.add(mediaPlayer);
+                mainSplit.revalidate();
+                mainSplit.repaint();
+                mediaPlayerShowing = true;
+            }
+            mediaPlayer.mediaPlayer().media().play(filesInDir.get(imgIdx).getPath());
+        }
+        currImageTextField.setText(String.valueOf(imgIdx));
+        renameTextField.setText(filesInDir.get(imgIdx).getName());
+    }
+
+    public void rescaleImageIcon() {
         Dimension d = imageLabel.getSize();
-        ImageIcon imgIcon = new ImageIcon(filesInDir.get(imgIdx).getPath());
-        imageLabel.setIcon(imgIcon);
+        //check if it hasn't been drawn yet
+        if (d.width == 0 || d.height == 0) return;
+        ImageIcon imgIcon = (ImageIcon) imageLabel.getIcon();
         //TODO more logic for widescreen images going off the screen when the label isn't wide enough but the smallest dimension is still height.
         if (imgIcon.getIconWidth() > imgIcon.getIconHeight()) {
             imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
         } else {
             imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
         }
-        currImageTextField.setText(String.valueOf(imgIdx));
-        renameTextField.setText(filesInDir.get(imgIdx).getName());
     }
 
     public static class CreateChildNodes implements Runnable {
