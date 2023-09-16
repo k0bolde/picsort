@@ -17,13 +17,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Objects;
-//Work Units
-//full test - browse, set base folder, move, rename, delete, sort order, jump to image num
-//TODO exr hdr avif heif animated webp support
+import java.util.*;
+//TODO full test - browse, set base folder, move, rename, delete, sort order, jump to image num
+//TODO show on gui what image folder is open
+//TODO Keybinds https://docs.oracle.com/javase/tutorial/uiswing/misc/keybinding.html for next/prev/delete image
+//TODO exr hdr avif heif animated webp psd support
+//TODO txt rtf pdf doc docx support for stories?
 //TODO direct reverse lookup for FA, IB, other sites we can pattern match and get the post url from - tineye for other images?
 
 
@@ -75,6 +74,7 @@ public class MainWindow {
                 System.exit(0);
             }
         });
+        UIManager.put("FileChooser.readOnly", Boolean.TRUE);
         fc = new JFileChooser();
         fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         fc.setAcceptAllFileFilterUsed(true);
@@ -210,10 +210,10 @@ public class MainWindow {
                 var selected = fc.getSelectedFile();
                 var found = selected.listFiles(file -> {
                     var name = file.getName().toLowerCase();
-                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".bmp") || name.endsWith(".tiff") || name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mkv"));
+                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".bmp") || name.endsWith(".tiff") || name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mkv") || name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".flac"));
                 });
                 if (found != null) {
-                    filesInDir = Arrays.asList(found);
+                    filesInDir = new ArrayList<>(Arrays.asList(found));
                 } else {
                     filesInDir = new ArrayList<>();
                 }
@@ -232,7 +232,7 @@ public class MainWindow {
             var ret = fc.showOpenDialog(frame);
             if (ret == JFileChooser.APPROVE_OPTION) {
                 var selected = fc.getSelectedFile();
-                var root = new DefaultMutableTreeNode(new FileNode(selected));
+                var root = new PathTreeNode(new FileNode(selected));
                 var model = new DefaultTreeModel(root);
                 fileTree.setModel(model);
                 var ccn = new CreateChildNodes(selected, root);
@@ -259,7 +259,7 @@ public class MainWindow {
                 Click on a folder in the tree on the left to move the currently viewed image to that folder. Files in the destination folder with the same name are overwritten.
                 Delete will move the currently viewed image to the recycle bin.
                 Enter an image number to jump to that image in the folder.
-                Supported filetypes: jpg, png, gif, mp4, mkv, webm, webp (not animated), bmp, tiff
+                Supported filetypes: jpg, png, gif, mp4, mkv, webm, webp (not animated), bmp, tiff, mp3, wav, flac
                 """));
         menuHelp.add(helpMenuItem);
         aboutMenuItem = new JMenuItem("About");
@@ -276,8 +276,28 @@ public class MainWindow {
         frame.setJMenuBar(menuBar);
         mainSplit.setDividerLocation(300);
 
+        //TODO disable default jtree keybinds
+//        for (KeyListener kl : fileTree.getKeyListeners()) {
+//            fileTree.removeKeyListener(kl);
+//        }
+//        fileTree.setUI(new BasicTreeUI() {
+//            @Override
+//            protected KeyListener createKeyListener() {
+//                return null;
+//            }
+//        });
+//        InputMap inputMap = fileTree.getInputMap( JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT );
+//        inputMap.clear();
+//        fileTree.setInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, inputMap);
+//        inputMap = fileTree.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+//        inputMap.clear();
+//        fileTree.setInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW, inputMap);
+//        inputMap = fileTree.getInputMap(JComponent.WHEN_FOCUSED);
+//        inputMap.clear();
+//        fileTree.setInputMap(JComponent.WHEN_FOCUSED, inputMap);
+
         var fileRoot = new File(System.getProperty("user.home"));
-        var root = new DefaultMutableTreeNode(new FileNode(fileRoot));
+        var root = new PathTreeNode(new FileNode(fileRoot));
         var model = new DefaultTreeModel(root);
         fileTree.setModel(model);
         var cellRenderer = new DefaultTreeCellRenderer();
@@ -293,7 +313,7 @@ public class MainWindow {
 //        new Thread(ccn).start();
         fileTree.expandRow(0);
 
-        nextButton.setMnemonic(KeyEvent.VK_RIGHT);
+//        nextButton.setMnemonic(KeyEvent.VK_RIGHT);
         nextButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
             if (imgIdx < filesInDir.size() - 1) {
@@ -303,7 +323,7 @@ public class MainWindow {
             }
             updateImg();
         });
-        prevButton.setMnemonic(KeyEvent.VK_LEFT);
+//        prevButton.setMnemonic(KeyEvent.VK_LEFT);
         prevButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
             if (imgIdx > 0) {
@@ -313,18 +333,25 @@ public class MainWindow {
             }
             updateImg();
         });
-        currImageTextField.addActionListener(actionEvent -> {
-            try {
-                var userNum = Integer.parseInt(currImageTextField.getText()) - 1;
-                if (userNum >= 0 && userNum < filesInDir.size() - 1) {
-                    imgIdx = userNum;
-                } else {
-                    //just throw the same thing as a bad int so we can reuse that code
-                    throw new NumberFormatException();
+        currImageTextField.addFocusListener(new FocusListener() {
+            @Override
+            public void focusGained(FocusEvent focusEvent) {
+            }
+
+            @Override
+            public void focusLost(FocusEvent focusEvent) {
+                try {
+                    var userNum = Integer.parseInt(currImageTextField.getText()) - 1;
+                    if (userNum >= 0 && userNum < filesInDir.size() - 1) {
+                        imgIdx = userNum;
+                    } else {
+                        //just throw the same thing as a bad int so we can reuse that code
+                        throw new NumberFormatException();
+                    }
+                    updateImg();
+                } catch (NumberFormatException e) {
+                    currImageTextField.setText(String.valueOf(imgIdx + 1));
                 }
-                updateImg();
-            } catch (NumberFormatException e) {
-                currImageTextField.setText(String.valueOf(imgIdx + 1));
             }
         });
         sortOrderComboBox.addActionListener(new ChangeSort());
@@ -422,6 +449,8 @@ public class MainWindow {
         filesInDir = new ArrayList<>();
 //        filesInDir.add(new File("/home/kobold/sdb/pics/porn/me!/2023/4/rep-openbrushd.gif"));
 //        filesInDir.add(new File("/home/kobold/sdb/pics/porn/me!/2023/4/rep-openbrush.webp"));
+//        filesInDir.add(new File("/home/kobold/sdb/Music/youtube/Don't Come Out The House (feat. 21 Savage) [523554936].mp3"));
+
 //        filesInDir.add(new File("/home/kobold/Desktop/1.webp"));
 //        filesInDir.add(new File("/home/kobold/Desktop/IMG_20230114_211628785.jpg"));
 //        filesInDir.add(new File("/home/kobold/Desktop/Salazzle and scolipede sex LQ.mp4"));
@@ -473,6 +502,7 @@ public class MainWindow {
                 rescaleImageIcon();
             } else {
                 //use vlcj
+                //TODO don't restart on resize
                 swapImagePanel(true);
                 mediaPlayer.mediaPlayer().media().play(filesInDir.get(imgIdx).getPath());
             }
@@ -530,18 +560,18 @@ public class MainWindow {
     }
 
     public static class CreateChildNodes implements Runnable {
-        private final DefaultMutableTreeNode root;
+        private final PathTreeNode root;
         private final File fileRoot;
 
-        public CreateChildNodes(File fileRoot, DefaultMutableTreeNode root) {
+        public CreateChildNodes(File fileRoot, PathTreeNode root) {
             this.fileRoot = fileRoot;
             this.root = root;
         }
 
-        private static void createChildren(File fileRoot, DefaultMutableTreeNode node, int depth) {
+        private static void createChildren(File fileRoot, PathTreeNode node, int depth) {
             if (depth > 4) return;
             //only dirs
-            var level = new ArrayList<DefaultMutableTreeNode>();
+            var level = new ArrayList<PathTreeNode>();
 //            try {
 //                Files.walkFileTree(fileRoot.toPath(), EnumSet.of(FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE, new SimpleFileVisitor<>() {
 //                    @Override
@@ -576,7 +606,6 @@ public class MainWindow {
         }
     }
 
-    //TODO rename to be less generic sounding?
     public static class PathTreeNode extends DefaultMutableTreeNode {
         private Path filePath;
 
@@ -617,16 +646,14 @@ public class MainWindow {
     public class ChangeSort implements ActionListener {
         public void actionPerformed(ActionEvent actionEvent) {
             if (filesInDir == null || filesInDir.isEmpty()) return;
-            //TODO set the imgIdx to the old current image, need to search the list for it in the new order
+            var lastFile = filesInDir.get(imgIdx);
             //we know this should never be null because we fill it out
             if (!Objects.equals(lastSort, sortOrderComboBox.getSelectedItem())) {
                 lastSort = (String) sortOrderComboBox.getSelectedItem();
                 lastSortOrder = "Asc";
                 switch ((String) sortOrderComboBox.getSelectedItem()) {
                     case "Name" -> filesInDir.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-                    case "Date" ->
-                        //TODO catch int overflow
-                            filesInDir.sort((file, t1) -> Math.toIntExact(file.lastModified() - t1.lastModified()));
+                    case "Date" -> filesInDir.sort(Comparator.comparingLong(File::lastModified));
                     case "Random" -> Collections.shuffle(filesInDir);
                     default ->
                             JOptionPane.showMessageDialog(frame, "ERROR! Unknown sort type: " + sortOrderComboBox.getSelectedItem());
@@ -636,6 +663,7 @@ public class MainWindow {
                 lastSortOrder = (String) sortTypeComboBox.getSelectedItem();
                 Collections.reverse(filesInDir);
             }
+            imgIdx = filesInDir.indexOf(lastFile);
             updateImg();
         }
     }
