@@ -3,6 +3,8 @@
     <output-path>$PROJECT_DIR$/out/artifacts/picsort_jar</output-path>
     <root id="archive" name="picsort.jar">
       <element id="module-output" name="picsort" />
+      <element id="library" level="project" name="github.usefulness.webp.imageio" />
+      <element id="library" level="project" name="uk.co.caprica.vlcj" />
     </root>
   </artifact>
 </component>
