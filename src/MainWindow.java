@@ -19,11 +19,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
 //TODO full test - browse, set base folder, move, rename, delete, sort order, jump to image num
-//TODO show on gui what image folder is open
 //TODO Keybinds https://docs.oracle.com/javase/tutorial/uiswing/misc/keybinding.html for next/prev/delete image
 //TODO exr hdr avif heif animated webp psd support
 //TODO txt rtf pdf doc docx support for stories?
-//TODO direct reverse lookup for FA, IB, other sites we can pattern match and get the post url from - tineye for other images?
+//TODO direct reverse lookup for FA, IB, youtube, other sites we can pattern match and get the post url from - tineye for other images?
 
 
 public class MainWindow {
@@ -217,13 +216,14 @@ public class MainWindow {
                 } else {
                     filesInDir = new ArrayList<>();
                 }
-                filesInDir.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+                filesInDir.sort(Comparator.comparingLong(File::lastModified));
                 totalImagesLabel.setText("/" + filesInDir.size());
                 imgIdx = 0;
                 currImageTextField.setText(String.valueOf(imgIdx + 1));
                 sortTypeComboBox.setSelectedIndex(0);
                 sortOrderComboBox.setSelectedIndex(0);
                 updateImg();
+                frame.setTitle("PicSort - " + selected.getPath());
             }
         });
         menu.add(openMenuItem);
@@ -360,7 +360,7 @@ public class MainWindow {
             @Override
             public void focusGained(FocusEvent focusEvent) {
                 //highlight the basename
-                renameTextField.select(0, renameTextField.getText().indexOf('.'));
+                renameTextField.select(0, renameTextField.getText().lastIndexOf('.'));
             }
 
             @Override
@@ -461,9 +461,10 @@ public class MainWindow {
         frame = new JFrame("PicSort");
         frame.setContentPane(new MainWindow().panel1);
 //        frame.pack();
-        frame.setSize(1280, 720);
+        frame.setSize(800, 600);
         frame.setVisible(true);
         frame.setLocationRelativeTo(null);
+        frame.setExtendedState(frame.getExtendedState() | Frame.MAXIMIZED_BOTH);
     }
 
     public void updateImg() {
@@ -471,8 +472,12 @@ public class MainWindow {
             //if there are no images currently being browsed, show a specific pic. Fixes when moving/deleting last pic in a folder.
             swapImagePanel(false);
             //TODO how to access/pack this in the jar?
-//            var imgIcon = new ImageIcon(getClass().getResource("/assets/nobrowse.png"));
-            var imgIcon = new ImageIcon("./assets/nobrowse.png");
+            ImageIcon imgIcon;
+            if (getClass().getResource("/assets/nobrowse.png") != null) {
+                imgIcon = new ImageIcon(getClass().getResource("/assets/nobrowse.png"));
+            } else {
+                imgIcon = new ImageIcon("./assets/nobrowse.png");
+            }
             imageLabel.setIcon(imgIcon);
             currImageTextField.setText("0");
             renameTextField.setText("");
@@ -491,7 +496,11 @@ public class MainWindow {
                     } catch (IOException e) {
                         if (e.getMessage().equals("Decode returned code UnsupportedFeature")) {
                             //set image to a builtin pic saying
-                            imgIcon = new ImageIcon("./assets/animatedwebperror.png");
+                            if (getClass().getResource("./assets/animatedwebperror.png") != null) {
+                                imgIcon = new ImageIcon(getClass().getResource("./assets/animatedwebperror.png"));
+                            } else {
+                                imgIcon = new ImageIcon("./assets/animatedwebperror.png");
+                            }
                         } else {
                             throw new RuntimeException(e);
                         }
@@ -589,7 +598,6 @@ public class MainWindow {
 //            }
             var files = fileRoot.listFiles(file1 -> file1.isDirectory() && !file1.isHidden());
             if (files == null) return;
-//            FIXME only picks up a few folders when pointed at sdb, why? Probably permissions?
             for (File file : files) {
                 var childNode = new PathTreeNode(new FileNode(file));
                 childNode.setFilePath(file.toPath());
