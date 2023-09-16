@@ -15,6 +15,7 @@
           </grid>
         </constraints>
         <properties>
+          <background color="-16777216"/>
           <dividerLocation value="200"/>
           <enabled value="true"/>
         </properties>
@@ -41,6 +42,7 @@
               <splitpane position="right"/>
             </constraints>
             <properties>
+              <foreground color="-16777216"/>
               <horizontalAlignment value="0"/>
               <horizontalTextPosition value="0"/>
               <text value=""/>
@@ -102,7 +104,7 @@
             </constraints>
             <properties>
               <enabled value="false"/>
-              <text value="Undo"/>
+              <text value="Lookup"/>
             </properties>
           </component>
           <component id="d4e5d" class="javax.swing.JLabel" binding="sortOrderLabel">

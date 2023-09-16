@@ -22,12 +22,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
 //Work Units
-//browse images - open folder, next, prev
-//rename, delete
-//move by clicking the tree
-//browser ordering
-//png, jpg, jpeg, gif, animated gif, webp work - animated webp shows error pic
+//full test - browse, set base folder, move, rename, delete, sort order, jump to image num
 //TODO exr hdr avif heif animated webp support
+//TODO direct reverse lookup for FA, IB, other sites we can pattern match and get the post url from - tineye for other images?
 
 
 public class MainWindow {
@@ -66,6 +63,7 @@ public class MainWindow {
     private int imgIdx = 0;
     private String lastSortOrder = "Asc";
     private String lastSort = "Date";
+    //keep track manually instead of checking mediaPlayer.isAncestorOf() since that doesn't seem to work?
     private boolean mediaPlayerShowing = true;
 
     public MainWindow() {
@@ -220,9 +218,9 @@ public class MainWindow {
                     filesInDir = new ArrayList<>();
                 }
                 filesInDir.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-                totalImagesLabel.setText("/" + (filesInDir.size() - 1));
+                totalImagesLabel.setText("/" + filesInDir.size());
                 imgIdx = 0;
-                currImageTextField.setText(String.valueOf(imgIdx));
+                currImageTextField.setText(String.valueOf(imgIdx + 1));
                 sortTypeComboBox.setSelectedIndex(0);
                 sortOrderComboBox.setSelectedIndex(0);
                 updateImg();
@@ -267,7 +265,10 @@ public class MainWindow {
         aboutMenuItem = new JMenuItem("About");
         aboutMenuItem.addActionListener(actionEvent -> JOptionPane.showMessageDialog(frame, """
                 Made by k0bold
-                I made this because I have a large collection of furry art that's gotten disorganized over the years and most relevant software is focused on photography.
+                                
+                I made this because I have a large collection of furry art that's gotten disorganized
+                over the years and most relevant software is focused on photography.
+                                
                 https://k0bold.com
                 https://github.com/k0bolde"""));
         menuHelp.add(aboutMenuItem);
@@ -275,7 +276,7 @@ public class MainWindow {
         frame.setJMenuBar(menuBar);
         mainSplit.setDividerLocation(300);
 
-        var fileRoot = new File("/home/kobold/Desktop");
+        var fileRoot = new File(System.getProperty("user.home"));
         var root = new DefaultMutableTreeNode(new FileNode(fileRoot));
         var model = new DefaultTreeModel(root);
         fileTree.setModel(model);
@@ -314,7 +315,7 @@ public class MainWindow {
         });
         currImageTextField.addActionListener(actionEvent -> {
             try {
-                var userNum = Integer.parseInt(currImageTextField.getText());
+                var userNum = Integer.parseInt(currImageTextField.getText()) - 1;
                 if (userNum >= 0 && userNum < filesInDir.size() - 1) {
                     imgIdx = userNum;
                 } else {
@@ -323,7 +324,7 @@ public class MainWindow {
                 }
                 updateImg();
             } catch (NumberFormatException e) {
-                currImageTextField.setText(String.valueOf(imgIdx));
+                currImageTextField.setText(String.valueOf(imgIdx + 1));
             }
         });
         sortOrderComboBox.addActionListener(new ChangeSort());
@@ -374,14 +375,14 @@ public class MainWindow {
             var selectedNode = (PathTreeNode) fileTree.getLastSelectedPathComponent();
             var toMove = filesInDir.get(imgIdx);
             System.out.println("Moved file at path: " + toMove.getPath() + " to path: " + selectedNode.getFilePath().resolve(toMove.getName()));
-//            try {
-//                //might need:
-//                //Files.copy(file, target.resolve(source.relativize(file))); //target and source are paths
-//                Files.move(toMove.toPath(), selectedNode.getFilePath().resolve(toMove.getName()), StandardCopyOption.REPLACE_EXISTING);
-//            } catch (IOException e) {
-//                JOptionPane.showMessageDialog(frame, "ERROR! Couldn't move file.");
-//                return;
-//            }
+            try {
+                //might need:
+                //Files.copy(file, target.resolve(source.relativize(file))); //target and source are paths
+                Files.move(toMove.toPath(), selectedNode.getFilePath().resolve(toMove.getName()), StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(frame, "ERROR! Couldn't move file.");
+                return;
+            }
             filesInDir.remove(imgIdx);
             if (imgIdx >= filesInDir.size()) {
                 imgIdx = 0;
@@ -420,6 +421,7 @@ public class MainWindow {
         });
         filesInDir = new ArrayList<>();
 //        filesInDir.add(new File("/home/kobold/sdb/pics/porn/me!/2023/4/rep-openbrushd.gif"));
+//        filesInDir.add(new File("/home/kobold/sdb/pics/porn/me!/2023/4/rep-openbrush.webp"));
 //        filesInDir.add(new File("/home/kobold/Desktop/1.webp"));
 //        filesInDir.add(new File("/home/kobold/Desktop/IMG_20230114_211628785.jpg"));
 //        filesInDir.add(new File("/home/kobold/Desktop/Salazzle and scolipede sex LQ.mp4"));
@@ -474,7 +476,7 @@ public class MainWindow {
                 swapImagePanel(true);
                 mediaPlayer.mediaPlayer().media().play(filesInDir.get(imgIdx).getPath());
             }
-            currImageTextField.setText(String.valueOf(imgIdx));
+            currImageTextField.setText(String.valueOf(imgIdx + 1));
             renameTextField.setText(filesInDir.get(imgIdx).getName());
         }
         //don't let the tree get shrunk by the bully images
@@ -506,11 +508,24 @@ public class MainWindow {
         //check if it hasn't been drawn yet
         if (d.width == 0 || d.height == 0) return;
         ImageIcon imgIcon = (ImageIcon) imageLabel.getIcon();
-        //TODO more logic for widescreen images going off the screen when the label isn't wide enough but the smallest dimension is still height.
         if (imgIcon.getIconWidth() > imgIcon.getIconHeight()) {
-            imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
+            //image is wide
+            if (d.width > d.height) {
+                //label is wide too. use the label height
+                imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
+            } else {
+                //label is tall. use the label width
+                imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
+            }
         } else {
-            imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
+            //image is tall
+            if (d.width > d.height) {
+                //label is wide. use the label height
+                imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
+            } else {
+                //label is tall too. use the label width
+                imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
+            }
         }
     }
 
@@ -524,7 +539,7 @@ public class MainWindow {
         }
 
         private static void createChildren(File fileRoot, DefaultMutableTreeNode node, int depth) {
-            if (depth > 5) return;
+            if (depth > 4) return;
             //only dirs
             var level = new ArrayList<DefaultMutableTreeNode>();
 //            try {
@@ -542,7 +557,7 @@ public class MainWindow {
 //            } catch (IOException e) {
 //                throw new RuntimeException(e);
 //            }
-            var files = fileRoot.listFiles(File::isDirectory);
+            var files = fileRoot.listFiles(file1 -> file1.isDirectory() && !file1.isHidden());
             if (files == null) return;
 //            FIXME only picks up a few folders when pointed at sdb, why? Probably permissions?
             for (File file : files) {
@@ -561,6 +576,7 @@ public class MainWindow {
         }
     }
 
+    //TODO rename to be less generic sounding?
     public static class PathTreeNode extends DefaultMutableTreeNode {
         private Path filePath;
 
