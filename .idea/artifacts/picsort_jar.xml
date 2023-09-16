@@ -5,6 +5,10 @@
       <element id="module-output" name="picsort" />
       <element id="library" level="project" name="github.usefulness.webp.imageio" />
       <element id="library" level="project" name="uk.co.caprica.vlcj" />
+      <element id="directory" name="assets">
+        <element id="file-copy" path="$PROJECT_DIR$/assets/animatedwebperror.png" />
+        <element id="file-copy" path="$PROJECT_DIR$/assets/nobrowse.png" />
+      </element>
     </root>
   </artifact>
 </component>

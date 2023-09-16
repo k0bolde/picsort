@@ -15,7 +15,8 @@
           </grid>
         </constraints>
         <properties>
-          <dividerLocation value="157"/>
+          <dividerLocation value="200"/>
+          <enabled value="true"/>
         </properties>
         <border type="none"/>
         <children>

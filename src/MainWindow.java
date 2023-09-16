@@ -27,6 +27,7 @@ import java.util.Objects;
 //move by clicking the tree
 //browser ordering
 //png, jpg, jpeg, gif, animated gif, webp work - animated webp shows error pic
+//TODO exr hdr avif heif animated webp support
 
 
 public class MainWindow {
@@ -211,7 +212,7 @@ public class MainWindow {
                 var selected = fc.getSelectedFile();
                 var found = selected.listFiles(file -> {
                     var name = file.getName().toLowerCase();
-                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".bmp") || name.endsWith(".tiff") || name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".webp") || name.endsWith(".mkv"));
+                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".bmp") || name.endsWith(".tiff") || name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mkv"));
                 });
                 if (found != null) {
                     filesInDir = Arrays.asList(found);
@@ -219,7 +220,7 @@ public class MainWindow {
                     filesInDir = new ArrayList<>();
                 }
                 filesInDir.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-                totalImagesLabel.setText("/" + filesInDir.size());
+                totalImagesLabel.setText("/" + (filesInDir.size() - 1));
                 imgIdx = 0;
                 currImageTextField.setText(String.valueOf(imgIdx));
                 sortTypeComboBox.setSelectedIndex(0);
@@ -260,7 +261,7 @@ public class MainWindow {
                 Click on a folder in the tree on the left to move the currently viewed image to that folder. Files in the destination folder with the same name are overwritten.
                 Delete will move the currently viewed image to the recycle bin.
                 Enter an image number to jump to that image in the folder.
-                Supported filetypes: jpg, png, gif, mp4, mkv, webp (but not animated), bmp, tiff
+                Supported filetypes: jpg, png, gif, mp4, mkv, webm, webp (not animated), bmp, tiff
                 """));
         menuHelp.add(helpMenuItem);
         aboutMenuItem = new JMenuItem("About");
@@ -294,7 +295,7 @@ public class MainWindow {
         nextButton.setMnemonic(KeyEvent.VK_RIGHT);
         nextButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
-            if (imgIdx < filesInDir.size()) {
+            if (imgIdx < filesInDir.size() - 1) {
                 imgIdx += 1;
             } else {
                 imgIdx = 0;
@@ -327,11 +328,23 @@ public class MainWindow {
         });
         sortOrderComboBox.addActionListener(new ChangeSort());
         sortTypeComboBox.addActionListener(new ChangeSort());
+        renameTextField.addFocusListener(new FocusListener() {
+            @Override
+            public void focusGained(FocusEvent focusEvent) {
+                //highlight the basename
+                renameTextField.select(0, renameTextField.getText().indexOf('.'));
+            }
+
+            @Override
+            public void focusLost(FocusEvent focusEvent) {
+            }
+        });
         renameButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
             var oldName = filesInDir.get(imgIdx);
             var newName = new File(oldName.getPath().replace(oldName.getName(), renameTextField.getText()));
-            var renamed = filesInDir.get(imgIdx).renameTo(newName);
+            System.out.println("Renamed: " + oldName.getName() + " to: " + newName.getName());
+            var renamed = oldName.renameTo(newName);
             if (!renamed) {
                 JOptionPane.showMessageDialog(frame, "ERROR! Could not rename file.");
             }
@@ -339,6 +352,7 @@ public class MainWindow {
         deleteButton.setMnemonic(KeyEvent.VK_DELETE);
         deleteButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
+            System.out.println("Deleted file at path: " + filesInDir.get(imgIdx).getPath());
             var deleted = Desktop.getDesktop().moveToTrash(filesInDir.get(imgIdx));
             if (!deleted) {
                 JOptionPane.showMessageDialog(frame, "ERROR! Could not delete file.");
@@ -359,14 +373,15 @@ public class MainWindow {
             //move the current image to the selected folder and advance to next image
             var selectedNode = (PathTreeNode) fileTree.getLastSelectedPathComponent();
             var toMove = filesInDir.get(imgIdx);
-            try {
-                //might need:
-                //Files.copy(file, target.resolve(source.relativize(file))); //target and source are paths
-                Files.move(toMove.toPath(), selectedNode.getFilePath().resolve(toMove.getName()), StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
-                JOptionPane.showMessageDialog(frame, "ERROR! Couldn't move file.");
-                return;
-            }
+            System.out.println("Moved file at path: " + toMove.getPath() + " to path: " + selectedNode.getFilePath().resolve(toMove.getName()));
+//            try {
+//                //might need:
+//                //Files.copy(file, target.resolve(source.relativize(file))); //target and source are paths
+//                Files.move(toMove.toPath(), selectedNode.getFilePath().resolve(toMove.getName()), StandardCopyOption.REPLACE_EXISTING);
+//            } catch (IOException e) {
+//                JOptionPane.showMessageDialog(frame, "ERROR! Couldn't move file.");
+//                return;
+//            }
             filesInDir.remove(imgIdx);
             if (imgIdx >= filesInDir.size()) {
                 imgIdx = 0;
@@ -385,7 +400,6 @@ public class MainWindow {
         imageLabel.addComponentListener(new ComponentListener() {
             @Override
             public void componentResized(ComponentEvent componentEvent) {
-                if (filesInDir == null || filesInDir.isEmpty()) return;
                 updateImg();
                 //lets the user resize the window and shrink the image
                 imageLabel.setMinimumSize(new Dimension(100, 100));
@@ -406,7 +420,7 @@ public class MainWindow {
         });
         filesInDir = new ArrayList<>();
 //        filesInDir.add(new File("/home/kobold/sdb/pics/porn/me!/2023/4/rep-openbrushd.gif"));
-        filesInDir.add(new File("/home/kobold/Desktop/1.webp"));
+//        filesInDir.add(new File("/home/kobold/Desktop/1.webp"));
 //        filesInDir.add(new File("/home/kobold/Desktop/IMG_20230114_211628785.jpg"));
 //        filesInDir.add(new File("/home/kobold/Desktop/Salazzle and scolipede sex LQ.mp4"));
         updateImg();
@@ -425,44 +439,50 @@ public class MainWindow {
         if (filesInDir == null || filesInDir.isEmpty()) {
             //if there are no images currently being browsed, show a specific pic. Fixes when moving/deleting last pic in a folder.
             swapImagePanel(false);
+            //TODO how to access/pack this in the jar?
+//            var imgIcon = new ImageIcon(getClass().getResource("/assets/nobrowse.png"));
             var imgIcon = new ImageIcon("./assets/nobrowse.png");
             imageLabel.setIcon(imgIcon);
-            rescaleImageIcon();
-        }
-        var filename = filesInDir.get(imgIdx).getName().toLowerCase();
-        if (filename.endsWith(".gif") || filename.endsWith(".webp")) {
-            ImageIcon imgIcon;
-            if (filename.endsWith(".gif")) {
-                //use imageIcon constructor
-                imgIcon = new ImageIcon(filesInDir.get(imgIdx).getPath());
-            } else {
-                //use imageIO with imageIcon
-                try {
-                    imgIcon =  new ImageIcon(ImageIO.read(filesInDir.get(imgIdx)));
-                } catch (IOException e) {
-                    if (e.getMessage().equals("Decode returned code UnsupportedFeature")) {
-                        //set image to a builtin pic saying
-                        imgIcon =  new ImageIcon("./assets/animatedwebperror.png");
-                    } else {
-                        throw new RuntimeException(e);
-                    }
-                }
-            }
-            //use imageIcon constructor
-            swapImagePanel(false);
-            imageLabel.setIcon(imgIcon);
+            currImageTextField.setText("0");
+            renameTextField.setText("");
             rescaleImageIcon();
         } else {
-            //use vlcj
-            swapImagePanel(true);
-            mediaPlayer.mediaPlayer().media().play(filesInDir.get(imgIdx).getPath());
+            var filename = filesInDir.get(imgIdx).getName().toLowerCase();
+            if (filename.endsWith(".gif") || filename.endsWith(".webp")) {
+                ImageIcon imgIcon;
+                if (filename.endsWith(".gif")) {
+                    //use imageIcon constructor
+                    imgIcon = new ImageIcon(filesInDir.get(imgIdx).getPath());
+                } else {
+                    //use imageIO with imageIcon
+                    try {
+                        imgIcon = new ImageIcon(ImageIO.read(filesInDir.get(imgIdx)));
+                    } catch (IOException e) {
+                        if (e.getMessage().equals("Decode returned code UnsupportedFeature")) {
+                            //set image to a builtin pic saying
+                            imgIcon = new ImageIcon("./assets/animatedwebperror.png");
+                        } else {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }
+                swapImagePanel(false);
+                imageLabel.setIcon(imgIcon);
+                rescaleImageIcon();
+            } else {
+                //use vlcj
+                swapImagePanel(true);
+                mediaPlayer.mediaPlayer().media().play(filesInDir.get(imgIdx).getPath());
+            }
+            currImageTextField.setText(String.valueOf(imgIdx));
+            renameTextField.setText(filesInDir.get(imgIdx).getName());
         }
-        currImageTextField.setText(String.valueOf(imgIdx));
-        renameTextField.setText(filesInDir.get(imgIdx).getName());
+        //don't let the tree get shrunk by the bully images
+        mainSplit.setDividerLocation(mainSplit.getDividerLocation());
     }
 
     private void swapImagePanel(boolean isVlc) {
-        if (isVlc){
+        if (isVlc) {
             if (!mediaPlayerShowing) {
                 mainSplit.remove(imageLabel);
                 mainSplit.add(mediaPlayer);
@@ -470,7 +490,7 @@ public class MainWindow {
                 mainSplit.repaint();
                 mediaPlayerShowing = true;
             }
-        }else{
+        } else {
             if (mediaPlayerShowing) {
                 mainSplit.remove(mediaPlayer);
                 mainSplit.add(imageLabel);
@@ -503,13 +523,7 @@ public class MainWindow {
             this.root = root;
         }
 
-        @Override
-        public void run() {
-            createChildren(fileRoot, root, 0);
-        }
-
-        //TODO depth limit? so it doesn't freeze when loading
-        private void createChildren(File fileRoot, DefaultMutableTreeNode node, int depth) {
+        private static void createChildren(File fileRoot, DefaultMutableTreeNode node, int depth) {
             if (depth > 5) return;
             //only dirs
             var level = new ArrayList<DefaultMutableTreeNode>();
@@ -539,6 +553,11 @@ public class MainWindow {
             }
             level.sort((a, b) -> a.toString().compareToIgnoreCase(b.toString()));
             level.forEach(node::add);
+        }
+
+        @Override
+        public void run() {
+            createChildren(fileRoot, root, 0);
         }
     }
 
@@ -593,7 +612,8 @@ public class MainWindow {
                         //TODO catch int overflow
                             filesInDir.sort((file, t1) -> Math.toIntExact(file.lastModified() - t1.lastModified()));
                     case "Random" -> Collections.shuffle(filesInDir);
-                    default -> JOptionPane.showMessageDialog(frame, "ERROR! Unknown sort type: " + sortOrderComboBox.getSelectedItem());
+                    default ->
+                            JOptionPane.showMessageDialog(frame, "ERROR! Unknown sort type: " + sortOrderComboBox.getSelectedItem());
                 }
             }
             if (!Objects.equals(sortTypeComboBox.getSelectedItem(), lastSortOrder)) {
