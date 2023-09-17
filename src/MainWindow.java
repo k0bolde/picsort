@@ -77,6 +77,8 @@ public class MainWindow {
         fc = new JFileChooser();
         fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         fc.setAcceptAllFileFilterUsed(true);
+//        fc.setSize(800, 600);
+        fc.setPreferredSize(new Dimension(700, 500));
 
         mediaPlayer = new CallbackMediaPlayerComponent();
         mediaPlayer.mediaPlayer().events().addMediaPlayerEventListener(new MediaPlayerEventListener() {
@@ -204,6 +206,7 @@ public class MainWindow {
         menu = new JMenu("File");
         openMenuItem = new JMenuItem("Open Images in Folder");
         openMenuItem.addActionListener(actionEvent -> {
+            fc.setDialogTitle("Open Images in Folder");
             var ret = fc.showOpenDialog(frame);
             if (ret == JFileChooser.APPROVE_OPTION) {
                 var selected = fc.getSelectedFile();
@@ -229,6 +232,7 @@ public class MainWindow {
         menu.add(openMenuItem);
         openFolderMenuItem = new JMenuItem("Pick Base Folder");
         openFolderMenuItem.addActionListener(actionEvent -> {
+            fc.setDialogTitle("Pick Base Folder");
             var ret = fc.showOpenDialog(frame);
             if (ret == JFileChooser.APPROVE_OPTION) {
                 var selected = fc.getSelectedFile();
@@ -257,7 +261,7 @@ public class MainWindow {
                 Basic usage: File -> Pick Base Folder to select what folder root to move files into.
                 Then File -> Open Images In Folder to browse the images in that folder.
                 Click on a folder in the tree on the left to move the currently viewed image to that folder. Files in the destination folder with the same name are overwritten.
-                Delete will move the currently viewed image to the recycle bin.
+                Delete will move the currently viewed image to the recycle bin. WARNING full delete on linux.
                 Enter an image number to jump to that image in the folder.
                 Supported filetypes: jpg, png, gif, mp4, mkv, webm, webp (not animated), bmp, tiff, mp3, wav, flac
                 """));
@@ -376,15 +380,26 @@ public class MainWindow {
             if (!renamed) {
                 JOptionPane.showMessageDialog(frame, "ERROR! Could not rename file.");
             }
+            filesInDir.set(imgIdx, newName);
         });
         deleteButton.setMnemonic(KeyEvent.VK_DELETE);
         deleteButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
             System.out.println("Deleted file at path: " + filesInDir.get(imgIdx).getPath());
-            var deleted = Desktop.getDesktop().moveToTrash(filesInDir.get(imgIdx));
-            if (!deleted) {
-                JOptionPane.showMessageDialog(frame, "ERROR! Could not delete file.");
-                return;
+            try {
+                var deleted = Desktop.getDesktop().moveToTrash(filesInDir.get(imgIdx));
+                if (!deleted) {
+                    JOptionPane.showMessageDialog(frame, "ERROR! Could not delete file.");
+                    return;
+                }
+            } catch (UnsupportedOperationException e) {
+                try {
+                    Files.delete(filesInDir.get(imgIdx).toPath());
+                } catch (IOException ex) {
+                    JOptionPane.showMessageDialog(frame, "ERROR! Could not delete file.");
+                    return;
+
+                }
             }
             filesInDir.remove(imgIdx);
             totalImagesLabel.setText("/" + filesInDir.size());
@@ -396,26 +411,47 @@ public class MainWindow {
         undoButton.addActionListener(actionEvent -> {
             //TODO implement. Need to keep track of file moves and renames. Dunno how to undo a delete.
         });
-        fileTree.addTreeSelectionListener(treeSelectionEvent -> {
-            if (filesInDir == null || filesInDir.isEmpty()) return;
-            //move the current image to the selected folder and advance to next image
-            var selectedNode = (PathTreeNode) fileTree.getLastSelectedPathComponent();
-            var toMove = filesInDir.get(imgIdx);
-            System.out.println("Moved file at path: " + toMove.getPath() + " to path: " + selectedNode.getFilePath().resolve(toMove.getName()));
-            try {
-                //might need:
-                //Files.copy(file, target.resolve(source.relativize(file))); //target and source are paths
-                Files.move(toMove.toPath(), selectedNode.getFilePath().resolve(toMove.getName()), StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
-                JOptionPane.showMessageDialog(frame, "ERROR! Couldn't move file.");
-                return;
+        fileTree.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent mouseEvent) {
+                if (filesInDir == null || filesInDir.isEmpty()) return;
+                //move the current image to the selected folder and advance to next image
+                var selectedNode = (PathTreeNode) fileTree.getLastSelectedPathComponent();
+                if (selectedNode != null) {
+                    var toMove = filesInDir.get(imgIdx);
+                    System.out.println("Moved file at path: " + toMove.getPath() + " to path: " + selectedNode.getFilePath().resolve(toMove.getName()));
+                    try {
+                        //might need:
+                        //Files.copy(file, target.resolve(source.relativize(file))); //target and source are paths
+                        Files.move(toMove.toPath(), selectedNode.getFilePath().resolve(toMove.getName()), StandardCopyOption.REPLACE_EXISTING);
+                    } catch (IOException e) {
+                        JOptionPane.showMessageDialog(frame, "ERROR! Couldn't move file.");
+                        return;
+                    }
+                    filesInDir.remove(imgIdx);
+                    if (imgIdx >= filesInDir.size()) {
+                        imgIdx = 0;
+                    }
+                    updateImg();
+                    totalImagesLabel.setText("/" + filesInDir.size());
+                }
             }
-            filesInDir.remove(imgIdx);
-            if (imgIdx >= filesInDir.size()) {
-                imgIdx = 0;
+
+            @Override
+            public void mousePressed(MouseEvent mouseEvent) {
             }
-            updateImg();
-            totalImagesLabel.setText("/" + filesInDir.size());
+
+            @Override
+            public void mouseReleased(MouseEvent mouseEvent) {
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent mouseEvent) {
+            }
+
+            @Override
+            public void mouseExited(MouseEvent mouseEvent) {
+            }
         });
 
         frame.addWindowStateListener(windowEvent -> {
