@@ -15,10 +15,11 @@ import java.awt.event.*;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
-//TODO full test - browse, set base folder, move, rename, delete, sort order, jump to image num
+//TODO menu option for showing hidden folders
 //TODO Keybinds https://docs.oracle.com/javase/tutorial/uiswing/misc/keybinding.html for next/prev/delete image
 //TODO exr hdr avif heif animated webp psd support
 //TODO txt rtf pdf doc docx support for stories?
@@ -63,6 +64,7 @@ public class MainWindow {
     private String lastSort = "Date";
     //keep track manually instead of checking mediaPlayer.isAncestorOf() since that doesn't seem to work?
     private boolean mediaPlayerShowing = true;
+    private Path lastTmpPath;
 
     public MainWindow() {
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -70,6 +72,13 @@ public class MainWindow {
             @Override
             public void windowClosing(WindowEvent e) {
                 mediaPlayer.release();
+                if (lastTmpPath != null) {
+                    try {
+                        Files.delete(lastTmpPath);
+                    } catch (IOException ex) {
+                        //ignore, not much we can do here
+                    }
+                }
                 System.exit(0);
             }
         });
@@ -77,7 +86,6 @@ public class MainWindow {
         fc = new JFileChooser();
         fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         fc.setAcceptAllFileFilterUsed(true);
-//        fc.setSize(800, 600);
         fc.setPreferredSize(new Dimension(700, 500));
 
         mediaPlayer = new CallbackMediaPlayerComponent();
@@ -212,7 +220,7 @@ public class MainWindow {
                 var selected = fc.getSelectedFile();
                 var found = selected.listFiles(file -> {
                     var name = file.getName().toLowerCase();
-                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".bmp") || name.endsWith(".tiff") || name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mkv") || name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".flac"));
+                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".bmp") || name.endsWith(".svg") || name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mkv") || name.endsWith(".mov") || name.endsWith(".ogm") || name.endsWith(".wmv") || name.endsWith(".avi") || name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".flac") || name.endsWith(".ogg") || name.endsWith(".m4a") || name.endsWith(".aac") || name.endsWith(".wma"));
                 });
                 if (found != null) {
                     filesInDir = new ArrayList<>(Arrays.asList(found));
@@ -251,6 +259,13 @@ public class MainWindow {
         exitMenuItem = new JMenuItem("Exit");
         exitMenuItem.addActionListener(actionEvent -> {
             mediaPlayer.release();
+            if (lastTmpPath != null) {
+                try {
+                    Files.delete(lastTmpPath);
+                } catch (IOException ex) {
+                    //ignore, not much we can do here
+                }
+            }
             System.exit(0);
         });
         menu.add(exitMenuItem);
@@ -260,10 +275,15 @@ public class MainWindow {
         helpMenuItem.addActionListener(actionEvent -> JOptionPane.showMessageDialog(frame, """
                 Basic usage: File -> Pick Base Folder to select what folder root to move files into.
                 Then File -> Open Images In Folder to browse the images in that folder.
-                Click on a folder in the tree on the left to move the currently viewed image to that folder. Files in the destination folder with the same name are overwritten.
-                Delete will move the currently viewed image to the recycle bin. WARNING full delete on linux.
+                Click on a folder in the tree on the left to move the currently viewed image to that folder.
+                    - Files in the destination folder with the same name are overwritten.
+                Delete will move the currently viewed image to the recycle bin.
+                    WARNING - full delete on linux.
                 Enter an image number to jump to that image in the folder.
-                Supported filetypes: jpg, png, gif, mp4, mkv, webm, webp (not animated), bmp, tiff, mp3, wav, flac
+                Supported filetypes:
+                    Image: jpg, png, gif, webp (not animated), bmp, svg
+                    Video: mp4, mkv, webm, mov, ogm, wmv, avi
+                    Audio: ogg, mp3, wav, flac, m4a, aac, wma
                 """));
         menuHelp.add(helpMenuItem);
         aboutMenuItem = new JMenuItem("About");
@@ -274,6 +294,7 @@ public class MainWindow {
                 over the years and most relevant software is focused on photography.
                                 
                 https://k0bold.com
+                https://k0bold.itch.io
                 https://github.com/k0bolde"""));
         menuHelp.add(aboutMenuItem);
         menuBar.add(menuHelp);
@@ -375,11 +396,19 @@ public class MainWindow {
             if (filesInDir == null || filesInDir.isEmpty()) return;
             var oldName = filesInDir.get(imgIdx);
             var newName = new File(oldName.getPath().replace(oldName.getName(), renameTextField.getText()));
-            System.out.println("Renamed: " + oldName.getName() + " to: " + newName.getName());
-            var renamed = oldName.renameTo(newName);
-            if (!renamed) {
+            System.out.println("Renamed: " + oldName.getPath() + " to: " + newName.getPath());
+//            var renamed = oldName.renameTo(newName);
+            try {
+                Files.move(oldName.toPath(), newName.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
                 JOptionPane.showMessageDialog(frame, "ERROR! Could not rename file.");
+                System.err.println("Error renaming file: " + e.getMessage());
+                return;
             }
+//            if (!renamed) {
+//                JOptionPane.showMessageDialog(frame, "ERROR! Could not rename file.");
+//                return;
+//            }
             filesInDir.set(imgIdx, newName);
         });
         deleteButton.setMnemonic(KeyEvent.VK_DELETE);
@@ -393,12 +422,13 @@ public class MainWindow {
                     return;
                 }
             } catch (UnsupportedOperationException e) {
+                //TODO don't nest exceptions
                 try {
                     Files.delete(filesInDir.get(imgIdx).toPath());
                 } catch (IOException ex) {
                     JOptionPane.showMessageDialog(frame, "ERROR! Could not delete file.");
+                    System.err.println("Error deleting file: " + ex.getMessage());
                     return;
-
                 }
             }
             filesInDir.remove(imgIdx);
@@ -414,9 +444,10 @@ public class MainWindow {
         fileTree.addMouseListener(new MouseListener() {
             @Override
             public void mouseClicked(MouseEvent mouseEvent) {
-                if (filesInDir == null || filesInDir.isEmpty()) return;
                 //move the current image to the selected folder and advance to next image
                 var selectedNode = (PathTreeNode) fileTree.getLastSelectedPathComponent();
+                fileTree.getSelectionModel().clearSelection();
+                if (filesInDir == null || filesInDir.isEmpty()) return;
                 if (selectedNode != null) {
                     var toMove = filesInDir.get(imgIdx);
                     System.out.println("Moved file at path: " + toMove.getPath() + " to path: " + selectedNode.getFilePath().resolve(toMove.getName()));
@@ -426,6 +457,7 @@ public class MainWindow {
                         Files.move(toMove.toPath(), selectedNode.getFilePath().resolve(toMove.getName()), StandardCopyOption.REPLACE_EXISTING);
                     } catch (IOException e) {
                         JOptionPane.showMessageDialog(frame, "ERROR! Couldn't move file.");
+                        System.err.println("Error moving file: " + e.getMessage());
                         return;
                     }
                     filesInDir.remove(imgIdx);
@@ -504,6 +536,7 @@ public class MainWindow {
     }
 
     public void updateImg() {
+        Path tmpPath = null;
         if (filesInDir == null || filesInDir.isEmpty()) {
             //if there are no images currently being browsed, show a specific pic. Fixes when moving/deleting last pic in a folder.
             swapImagePanel(false);
@@ -520,15 +553,38 @@ public class MainWindow {
             rescaleImageIcon();
         } else {
             var filename = filesInDir.get(imgIdx).getName().toLowerCase();
+            try {
+                //TODO figure out why this isn't working
+//                tmpPath = Files.createTempFile(filename, ".tmp");
+                //kinda nasty with the double, not sure why its being a bitch
+                tmpPath = new File(filesInDir.get(imgIdx).getPath() + Math.random() + ".tmp").toPath();
+                Files.copy(filesInDir.get(imgIdx).toPath(), tmpPath);
+                Files.setAttribute(tmpPath, "dos:hidden", Boolean.TRUE, LinkOption.NOFOLLOW_LINKS);
+//                System.out.println("Created temp file: " + tmpPath);
+            } catch (IOException e) {
+                System.err.println("Error copying to temp file: " + e.getMessage());
+//                JOptionPane.showMessageDialog(frame, "ERROR! Couldn't create temp file.");
+                if (lastTmpPath != null) {
+                    try {
+                        //FIXME windows not deleting
+                        if (Files.exists(lastTmpPath)) Files.delete(lastTmpPath);
+                    } catch (IOException ex) {
+                        System.err.println("Error deleting temp file: " + ex.getMessage());
+                    }
+                }
+                lastTmpPath = tmpPath;
+                return;
+            }
+            //TODO don't try to load images that are too big
             if (filename.endsWith(".gif") || filename.endsWith(".webp")) {
                 ImageIcon imgIcon;
                 if (filename.endsWith(".gif")) {
                     //use imageIcon constructor
-                    imgIcon = new ImageIcon(filesInDir.get(imgIdx).getPath());
+                    imgIcon = new ImageIcon(tmpPath.toString());
                 } else {
                     //use imageIO with imageIcon
                     try {
-                        imgIcon = new ImageIcon(ImageIO.read(filesInDir.get(imgIdx)));
+                        imgIcon = new ImageIcon(ImageIO.read(tmpPath.toFile()));
                     } catch (IOException e) {
                         if (e.getMessage().equals("Decode returned code UnsupportedFeature")) {
                             //set image to a builtin pic saying
@@ -549,11 +605,20 @@ public class MainWindow {
                 //use vlcj
                 //TODO don't restart on resize
                 swapImagePanel(true);
-                mediaPlayer.mediaPlayer().media().play(filesInDir.get(imgIdx).getPath());
+                mediaPlayer.mediaPlayer().media().play(tmpPath.toString());
             }
             currImageTextField.setText(String.valueOf(imgIdx + 1));
             renameTextField.setText(filesInDir.get(imgIdx).getName());
         }
+        if (lastTmpPath != null) {
+            try {
+                //FIXME windows not deleting
+                if (Files.exists(lastTmpPath)) Files.delete(lastTmpPath);
+            } catch (IOException ex) {
+                System.err.println("Error deleting temp file: " + ex.getMessage());
+            }
+        }
+        lastTmpPath = tmpPath;
         //don't let the tree get shrunk by the bully images
         mainSplit.setDividerLocation(mainSplit.getDividerLocation());
     }
@@ -632,7 +697,7 @@ public class MainWindow {
 //            } catch (IOException e) {
 //                throw new RuntimeException(e);
 //            }
-            var files = fileRoot.listFiles(file1 -> file1.isDirectory() && !file1.isHidden());
+            var files = fileRoot.listFiles(file1 -> file1.isDirectory() && !file1.isHidden() && !file1.getName().startsWith("."));
             if (files == null) return;
             for (File file : files) {
                 var childNode = new PathTreeNode(new FileNode(file));
