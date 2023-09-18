@@ -438,9 +438,6 @@ public class MainWindow {
             }
             updateImg();
         });
-        undoButton.addActionListener(actionEvent -> {
-            //TODO implement. Need to keep track of file moves and renames. Dunno how to undo a delete.
-        });
         fileTree.addMouseListener(new MouseListener() {
             @Override
             public void mouseClicked(MouseEvent mouseEvent) {
