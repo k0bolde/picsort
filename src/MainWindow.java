@@ -98,7 +98,9 @@ public class MainWindow {
 
             @Override
             public void error(MediaPlayer mediaPlayer) {
-                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, "ERROR! Couldn't display media " + mediaPlayer.media().info().mrl()));
+                if (mediaPlayerShowing) {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, "ERROR! Couldn't display media " + mediaPlayer.media().info().mrl()));
+                }
             }
 
             @Override
