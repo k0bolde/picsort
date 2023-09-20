@@ -22,7 +22,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.*;
 //TODO change currImageNum to a spinner. Ran into a weird bug where it broke loading images?? might've been the changeListener responding to the prev/next buttons changing the value?
 //TODO more windows testing. Froze on dad when he picked his Desktop base folder. Didn't move a file when the tree was clicked - why?
-//TODO show image dimensions and filesize
 //TODO move menu options to buttons?
 //TODO menu option for showing hidden folders
 //TODO Keybinds https://docs.oracle.com/javase/tutorial/uiswing/misc/keybinding.html for next/prev/delete image
@@ -293,11 +292,12 @@ public class MainWindow {
                     - Files in the destination folder with the same name are overwritten.
                 Delete will move the currently viewed image to the recycle bin.
                     WARNING - full delete on linux.
-                The undo button only works on the last image moved.
+                The undo button only works on the last image moved NOT deleted.
                 Enter an image number to jump to that image in the folder.
+                Keyboard shortcuts: alt+delete to delete, alt+left/alt+right for navigation
                 Supported filetypes:
                     Image: jpg, png, gif, webp (not animated), bmp, svg
-                    Video: mp4, mkv, webm, mov, ogm, wmv, avi
+                    Video: mp4, mkv, webm, mov, ogm, wmv, avi, flv
                     Audio: ogg, mp3, wav, flac, m4a, aac, wma
                 """));
         menuHelp.add(helpMenuItem);
