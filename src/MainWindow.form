@@ -168,7 +168,7 @@
             </constraints>
             <properties>
               <enabled value="false"/>
-              <text value="Undo"/>
+              <text value="Undo Move"/>
             </properties>
           </component>
         </children>

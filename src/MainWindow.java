@@ -292,8 +292,9 @@ public class MainWindow {
                     - Files in the destination folder with the same name are overwritten.
                 Delete will move the currently viewed image to the recycle bin.
                     WARNING - full delete on linux.
-                The undo button only works on the last image moved NOT deleted.
+                The undo button only works on the last image moved.
                 Enter an image number to jump to that image in the folder.
+                Images are only renamed if you press enter while typing a filename or press the rename button.
                 Keyboard shortcuts: alt+delete to delete, alt+left/alt+right for navigation
                 Supported filetypes:
                     Image: jpg, png, gif, webp (not animated), bmp, svg
@@ -358,7 +359,7 @@ public class MainWindow {
         nextButton.setMnemonic(KeyEvent.VK_RIGHT);
         nextButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
-            renameButton.doClick();
+//            renameButton.doClick();
             if (imgIdx < filesInDir.size() - 1) {
                 imgIdx += 1;
             } else {
@@ -369,7 +370,7 @@ public class MainWindow {
         prevButton.setMnemonic(KeyEvent.VK_LEFT);
         prevButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
-            renameButton.doClick();
+//            renameButton.doClick();
             if (imgIdx > 0) {
                 imgIdx -= 1;
             } else {
@@ -405,7 +406,7 @@ public class MainWindow {
             @Override
             public void focusLost(FocusEvent focusEvent) {
                 try {
-                    renameButton.doClick();
+//                    renameButton.doClick();
                     var userNum = Integer.parseInt(currImageTextField.getText()) - 1;
                     if (userNum >= 0 && userNum < filesInDir.size() - 1) {
                         imgIdx = userNum;
