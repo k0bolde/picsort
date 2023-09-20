@@ -68,7 +68,7 @@
           </component>
           <component id="c7c4d" class="javax.swing.JLabel" binding="totalImagesLabel">
             <constraints>
-              <grid row="1" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="0" fill="0" indent="0" use-parent-layout="false">
+              <grid row="1" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="2" anchor="0" fill="0" indent="0" use-parent-layout="false">
                 <preferred-size width="50" height="19"/>
               </grid>
             </constraints>
@@ -79,19 +79,17 @@
           </component>
           <component id="1ba07" class="javax.swing.JButton" binding="prevButton">
             <constraints>
-              <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false">
-                <minimum-size width="70" height="-1"/>
-              </grid>
+              <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
             </constraints>
             <properties>
               <horizontalTextPosition value="10"/>
-              <text value="Prev"/>
+              <text value="Previous"/>
             </properties>
           </component>
           <component id="13143" class="javax.swing.JButton" binding="nextButton">
             <constraints>
-              <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="1" anchor="0" fill="1" indent="0" use-parent-layout="false">
-                <minimum-size width="70" height="-1"/>
+              <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false">
+                <preferred-size width="38" height="30"/>
               </grid>
             </constraints>
             <properties>
@@ -127,6 +125,14 @@
               <text value="Filename:"/>
             </properties>
           </component>
+          <component id="5a94" class="javax.swing.JTextField" binding="currImageTextField">
+            <constraints>
+              <grid row="0" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="2" anchor="0" fill="0" indent="0" use-parent-layout="false">
+                <preferred-size width="50" height="30"/>
+              </grid>
+            </constraints>
+            <properties/>
+          </component>
           <component id="a11c8" class="javax.swing.JComboBox" binding="sortTypeComboBox">
             <constraints>
               <grid row="1" column="5" row-span="1" col-span="1" vsize-policy="0" hsize-policy="2" anchor="8" fill="1" indent="0" use-parent-layout="false"/>
@@ -155,14 +161,6 @@
             <properties>
               <text value="Rename"/>
             </properties>
-          </component>
-          <component id="7f415" class="javax.swing.JSpinner" binding="currImageSpinner">
-            <constraints>
-              <grid row="0" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="0" fill="0" indent="0" use-parent-layout="false">
-                <maximum-size width="70" height="-1"/>
-              </grid>
-            </constraints>
-            <properties/>
           </component>
         </children>
       </grid>
