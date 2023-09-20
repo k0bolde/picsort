@@ -70,6 +70,9 @@ public class MainWindow {
     //keep track manually instead of checking mediaPlayer.isAncestorOf() since that doesn't seem to work?
     private boolean mediaPlayerShowing = true;
     private Path lastTmpPath;
+    private Path undoFileLocation;
+    private Path undoFileTarget;
+    private Integer undoIdx;
 
     public MainWindow() {
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -242,6 +245,10 @@ public class MainWindow {
                 sortOrderComboBox.setSelectedIndex(0);
                 updateImg();
                 frame.setTitle("PicSort - " + selected.getPath());
+                undoFileTarget = null;
+                undoFileLocation = null;
+                undoIdx = null;
+                undoButton.setEnabled(false);
             }
         });
         menu.add(openMenuItem);
@@ -286,6 +293,7 @@ public class MainWindow {
                     - Files in the destination folder with the same name are overwritten.
                 Delete will move the currently viewed image to the recycle bin.
                     WARNING - full delete on linux.
+                The undo button only works on the last image moved.
                 Enter an image number to jump to that image in the folder.
                 Supported filetypes:
                     Image: jpg, png, gif, webp (not animated), bmp, svg
@@ -479,6 +487,28 @@ public class MainWindow {
             }
             updateImg();
         });
+        undoButton.addActionListener(actionEvent -> {
+            if (undoFileLocation != null && undoFileTarget != null) {
+                //move the file back
+                //add it to the filesInDir list
+                //change to the restored image
+                try {
+                    Files.move(undoFileLocation, undoFileTarget);
+                    System.out.println("Undo file move from path: " + undoFileLocation + " restored to path: " + undoFileTarget);
+                } catch (IOException e) {
+                    JOptionPane.showMessageDialog(frame, "ERROR! Couldn't undo file move.");
+                    System.err.println("Error undoing move for file: " + e.getMessage());
+                    return;
+                }
+                filesInDir.add(undoIdx, undoFileTarget.toFile());
+                undoFileTarget = null;
+                undoFileLocation = null;
+                undoButton.setEnabled(false);
+                imgIdx = undoIdx;
+                totalImagesLabel.setText("/" + filesInDir.size());
+                updateImg();
+            }
+        });
         fileTree.addMouseListener(new MouseListener() {
             @Override
             public void mouseClicked(MouseEvent mouseEvent) {
@@ -499,9 +529,13 @@ public class MainWindow {
                         return;
                     }
                     filesInDir.remove(imgIdx);
+                    undoIdx = imgIdx;
                     if (imgIdx >= filesInDir.size()) {
                         imgIdx = 0;
                     }
+                    undoFileTarget = toMove.toPath();
+                    undoFileLocation = selectedNode.getFilePath().resolve(toMove.getName());
+                    undoButton.setEnabled(true);
                     updateImg();
                     totalImagesLabel.setText("/" + filesInDir.size());
                 }

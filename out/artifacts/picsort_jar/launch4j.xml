@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch4jConfig>
+  <dontWrapJar>false</dontWrapJar>
+  <headerType>gui</headerType>
+  <jar>/home/kobold/sdb/programming/picsort/out/artifacts/picsort_jar/picsort.jar</jar>
+  <outfile>/home/kobold/sdb/programming/picsort/out/artifacts/picsort_jar/picsort.exe</outfile>
+  <errTitle>Java not installed. Java 19 or above required.</errTitle>
+  <cmdLine></cmdLine>
+  <chdir>.</chdir>
+  <priority>normal</priority>
+  <downloadUrl>https://www.oracle.com/java/technologies/downloads/#jdk21-windows</downloadUrl>
+  <supportUrl></supportUrl>
+  <stayAlive>false</stayAlive>
+  <restartOnCrash>false</restartOnCrash>
+  <manifest></manifest>
+  <icon></icon>
+  <jre>
+    <path>%JAVA_HOME%;%PATH%</path>
+    <requiresJdk>false</requiresJdk>
+    <requires64Bit>false</requires64Bit>
+    <minVersion>19</minVersion>
+    <maxVersion></maxVersion>
+  </jre>
+</launch4jConfig>
