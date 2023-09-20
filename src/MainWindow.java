@@ -592,10 +592,13 @@ public class MainWindow {
         } else {
             var filename = filesInDir.get(imgIdx).getName().toLowerCase();
             try {
-                //TODO figure out why this isn't working
+                //TODO figure out why this isn't working. Errors on copying to it
 //                tmpPath = Files.createTempFile(filename, ".tmp");
-                //kinda nasty with the double, not sure why its being a bitch
-                tmpPath = new File(filesInDir.get(imgIdx).getPath() + Math.random() + ".tmp").toPath();
+                //kinda nasty with the double, not sure why its being a bitch but its my logic's fault - it fires 3 times on start
+                var pathPart = filesInDir.get(imgIdx).getPath();
+                tmpPath = new File(pathPart.substring(0, pathPart.lastIndexOf(File.separatorChar) + 1) + "." + filename + Math.random() + ".tmp").toPath();
+                tmpPath.toFile().deleteOnExit();
+//                tmpPath = new File(filesInDir.get(imgIdx).getPath() + Math.random() + ".tmp").toPath();
                 Files.copy(filesInDir.get(imgIdx).toPath(), tmpPath);
                 Files.setAttribute(tmpPath, "dos:hidden", Boolean.TRUE, LinkOption.NOFOLLOW_LINKS);
 //                System.out.println("Created temp file: " + tmpPath);
@@ -604,7 +607,6 @@ public class MainWindow {
 //                JOptionPane.showMessageDialog(frame, "ERROR! Couldn't create temp file.");
                 if (lastTmpPath != null) {
                     try {
-                        //FIXME windows not deleting
                         if (Files.exists(lastTmpPath)) Files.delete(lastTmpPath);
                     } catch (IOException ex) {
                         System.err.println("Error deleting temp file: " + ex.getMessage());
