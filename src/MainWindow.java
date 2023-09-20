@@ -358,6 +358,7 @@ public class MainWindow {
         nextButton.setMnemonic(KeyEvent.VK_RIGHT);
         nextButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
+            renameButton.doClick();
             if (imgIdx < filesInDir.size() - 1) {
                 imgIdx += 1;
             } else {
@@ -368,6 +369,7 @@ public class MainWindow {
         prevButton.setMnemonic(KeyEvent.VK_LEFT);
         prevButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
+            renameButton.doClick();
             if (imgIdx > 0) {
                 imgIdx -= 1;
             } else {
@@ -403,6 +405,7 @@ public class MainWindow {
             @Override
             public void focusLost(FocusEvent focusEvent) {
                 try {
+                    renameButton.doClick();
                     var userNum = Integer.parseInt(currImageTextField.getText()) - 1;
                     if (userNum >= 0 && userNum < filesInDir.size() - 1) {
                         imgIdx = userNum;
@@ -450,6 +453,7 @@ public class MainWindow {
             if (filesInDir == null || filesInDir.isEmpty()) return;
             var oldName = filesInDir.get(imgIdx);
             var newName = new File(oldName.getPath().replace(oldName.getName(), renameTextField.getText()));
+            if (oldName.equals(newName)) return;
             System.out.println("Renamed: " + oldName.getPath() + " to: " + newName.getPath());
             try {
                 Files.move(oldName.toPath(), newName.toPath(), StandardCopyOption.REPLACE_EXISTING);
