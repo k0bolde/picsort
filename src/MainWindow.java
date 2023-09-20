@@ -6,6 +6,7 @@ import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.plaf.basic.BasicTreeUI;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
@@ -19,6 +20,9 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
+//TODO change currImageNum to a spinner. Ran into a weird bug where it broke loading images??
+//TODO more windows testing. Froze on dad when he picked his Desktop base folder. Didn't move a file when the tree was clicked - why?
+//TODO move menu options to buttons?
 //TODO menu option for showing hidden folders
 //TODO Keybinds https://docs.oracle.com/javase/tutorial/uiswing/misc/keybinding.html for next/prev/delete image
 //TODO exr hdr avif heif animated webp psd support
@@ -303,6 +307,24 @@ public class MainWindow {
         frame.setJMenuBar(menuBar);
         mainSplit.setDividerLocation(300);
 
+
+
+        var fileRoot = new File(System.getProperty("user.home"));
+        var root = new PathTreeNode(new FileNode(fileRoot));
+        var model = new DefaultTreeModel(root);
+        fileTree.setModel(model);
+        var cellRenderer = new DefaultTreeCellRenderer();
+        cellRenderer.setLeafIcon(null);
+        cellRenderer.setOpenIcon(null);
+        cellRenderer.setClosedIcon(null);
+        fileTree.setCellRenderer(cellRenderer);
+        fileTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+
+        var ccn = new CreateChildNodes(fileRoot, root);
+        ccn.run();
+        //TODO change back to threading
+//        new Thread(ccn).start();
+        fileTree.expandRow(0);
         //TODO disable default jtree keybinds
 //        for (KeyListener kl : fileTree.getKeyListeners()) {
 //            fileTree.removeKeyListener(kl);
@@ -323,24 +345,7 @@ public class MainWindow {
 //        inputMap.clear();
 //        fileTree.setInputMap(JComponent.WHEN_FOCUSED, inputMap);
 
-        var fileRoot = new File(System.getProperty("user.home"));
-        var root = new PathTreeNode(new FileNode(fileRoot));
-        var model = new DefaultTreeModel(root);
-        fileTree.setModel(model);
-        var cellRenderer = new DefaultTreeCellRenderer();
-        cellRenderer.setLeafIcon(null);
-        cellRenderer.setOpenIcon(null);
-        cellRenderer.setClosedIcon(null);
-        fileTree.setCellRenderer(cellRenderer);
-        fileTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
-
-        var ccn = new CreateChildNodes(fileRoot, root);
-        ccn.run();
-        //TODO change back to threading
-//        new Thread(ccn).start();
-        fileTree.expandRow(0);
-
-//        nextButton.setMnemonic(KeyEvent.VK_RIGHT);
+        nextButton.setMnemonic(KeyEvent.VK_RIGHT);
         nextButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
             if (imgIdx < filesInDir.size() - 1) {
@@ -350,7 +355,7 @@ public class MainWindow {
             }
             updateImg();
         });
-//        prevButton.setMnemonic(KeyEvent.VK_LEFT);
+        prevButton.setMnemonic(KeyEvent.VK_LEFT);
         prevButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
             if (imgIdx > 0) {
@@ -360,6 +365,26 @@ public class MainWindow {
             }
             updateImg();
         });
+//        panel1.addKeyListener(new KeyListener() {
+//            @Override
+//            public void keyTyped(KeyEvent keyEvent) {
+//
+//            }
+//
+//            @Override
+//            public void keyPressed(KeyEvent keyEvent) {
+//                switch (keyEvent.getKeyCode()){
+//                    case KeyEvent.VK_RIGHT -> nextButton.doClick();
+//                    case KeyEvent.VK_LEFT -> prevButton.doClick();
+//                    case KeyEvent.VK_DELETE -> deleteButton.doClick();
+//                }
+//            }
+//
+//            @Override
+//            public void keyReleased(KeyEvent keyEvent) {
+//
+//            }
+//        });
         currImageTextField.addFocusListener(new FocusListener() {
             @Override
             public void focusGained(FocusEvent focusEvent) {
@@ -394,12 +419,28 @@ public class MainWindow {
             public void focusLost(FocusEvent focusEvent) {
             }
         });
+        renameTextField.addKeyListener(new KeyListener() {
+            @Override
+            public void keyTyped(KeyEvent keyEvent) {
+            }
+
+            @Override
+            public void keyPressed(KeyEvent keyEvent) {
+                if (keyEvent.getKeyCode() == KeyEvent.VK_ENTER) {
+                    renameButton.doClick();
+                }
+            }
+
+            @Override
+            public void keyReleased(KeyEvent keyEvent) {
+
+            }
+        });
         renameButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
             var oldName = filesInDir.get(imgIdx);
             var newName = new File(oldName.getPath().replace(oldName.getName(), renameTextField.getText()));
             System.out.println("Renamed: " + oldName.getPath() + " to: " + newName.getPath());
-//            var renamed = oldName.renameTo(newName);
             try {
                 Files.move(oldName.toPath(), newName.toPath(), StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
@@ -407,10 +448,6 @@ public class MainWindow {
                 System.err.println("Error renaming file: " + e.getMessage());
                 return;
             }
-//            if (!renamed) {
-//                JOptionPane.showMessageDialog(frame, "ERROR! Could not rename file.");
-//                return;
-//            }
             filesInDir.set(imgIdx, newName);
         });
         deleteButton.setMnemonic(KeyEvent.VK_DELETE);
