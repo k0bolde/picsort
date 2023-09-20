@@ -6,6 +6,8 @@ import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
@@ -19,6 +21,8 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
+//TODO more windows testing. Froze on dad when he picked his Desktop base folder. Didn't move a file when the tree was clicked - why?
+//TODO move menu options to buttons?
 //TODO menu option for showing hidden folders
 //TODO Keybinds https://docs.oracle.com/javase/tutorial/uiswing/misc/keybinding.html for next/prev/delete image
 //TODO exr hdr avif heif animated webp psd support
@@ -53,11 +57,11 @@ public class MainWindow {
     private JLabel sortOrderLabel;
     private JLabel renameLabel;
     private JTextField renameTextField;
-    private JTextField currImageTextField;
     private JLabel totalImagesLabel;
     private JLabel imageLabel;
     private JComboBox<String> sortTypeComboBox;
     private JButton renameButton;
+    private JSpinner currImageSpinner;
     private java.util.List<File> filesInDir;
     private int imgIdx = 0;
     private String lastSortOrder = "Asc";
@@ -211,6 +215,7 @@ public class MainWindow {
         mainSplit.add(mediaPlayer);
         mainSplit.revalidate();
         mainSplit.repaint();
+        currImageSpinner.setModel(new SpinnerNumberModel(1, 1, Integer.MAX_VALUE, 1));
 
         menuBar = new JMenuBar();
         menu = new JMenu("File");
@@ -232,7 +237,7 @@ public class MainWindow {
                 filesInDir.sort(Comparator.comparingLong(File::lastModified));
                 totalImagesLabel.setText("/" + filesInDir.size());
                 imgIdx = 0;
-                currImageTextField.setText(String.valueOf(imgIdx + 1));
+                currImageSpinner.setValue(imgIdx + 1);
                 sortTypeComboBox.setSelectedIndex(0);
                 sortOrderComboBox.setSelectedIndex(0);
                 updateImg();
@@ -360,29 +365,20 @@ public class MainWindow {
             }
             updateImg();
         });
-        currImageTextField.addFocusListener(new FocusListener() {
-            @Override
-            public void focusGained(FocusEvent focusEvent) {
+        //TODO make it loop
+        currImageSpinner.addChangeListener(changeEvent -> {
+            if (filesInDir == null || filesInDir.isEmpty()) return;
+            var userNum = (Integer) currImageSpinner.getValue() - 1;
+            if (userNum >= 0 && userNum < filesInDir.size()) {
+                imgIdx = userNum;
+            } else {
+                currImageSpinner.setValue(imgIdx + 1);
             }
-
-            @Override
-            public void focusLost(FocusEvent focusEvent) {
-                try {
-                    var userNum = Integer.parseInt(currImageTextField.getText()) - 1;
-                    if (userNum >= 0 && userNum < filesInDir.size() - 1) {
-                        imgIdx = userNum;
-                    } else {
-                        //just throw the same thing as a bad int so we can reuse that code
-                        throw new NumberFormatException();
-                    }
-                    updateImg();
-                } catch (NumberFormatException e) {
-                    currImageTextField.setText(String.valueOf(imgIdx + 1));
-                }
-            }
+            updateImg();
         });
         sortOrderComboBox.addActionListener(new ChangeSort());
         sortTypeComboBox.addActionListener(new ChangeSort());
+        //TODO listen for enter keypress
         renameTextField.addFocusListener(new FocusListener() {
             @Override
             public void focusGained(FocusEvent focusEvent) {
@@ -547,7 +543,7 @@ public class MainWindow {
                 imgIcon = new ImageIcon("./assets/nobrowse.png");
             }
             imageLabel.setIcon(imgIcon);
-            currImageTextField.setText("0");
+            currImageSpinner.setValue(0);
             renameTextField.setText("");
             rescaleImageIcon();
         } else {
@@ -606,7 +602,7 @@ public class MainWindow {
                 swapImagePanel(true);
                 mediaPlayer.mediaPlayer().media().play(tmpPath.toString());
             }
-            currImageTextField.setText(String.valueOf(imgIdx + 1));
+            currImageSpinner.setValue(imgIdx + 1);
             renameTextField.setText(filesInDir.get(imgIdx).getName());
         }
         if (lastTmpPath != null) {
