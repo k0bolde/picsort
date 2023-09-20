@@ -20,8 +20,9 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
-//TODO change currImageNum to a spinner. Ran into a weird bug where it broke loading images??
+//TODO change currImageNum to a spinner. Ran into a weird bug where it broke loading images?? might've been the changeListener responding to the prev/next buttons changing the value?
 //TODO more windows testing. Froze on dad when he picked his Desktop base folder. Didn't move a file when the tree was clicked - why?
+//TODO show image dimensions and filesize
 //TODO move menu options to buttons?
 //TODO menu option for showing hidden folders
 //TODO Keybinds https://docs.oracle.com/javase/tutorial/uiswing/misc/keybinding.html for next/prev/delete image
@@ -226,7 +227,7 @@ public class MainWindow {
                 var selected = fc.getSelectedFile();
                 var found = selected.listFiles(file -> {
                     var name = file.getName().toLowerCase();
-                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".bmp") || name.endsWith(".svg") || name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mkv") || name.endsWith(".mov") || name.endsWith(".ogm") || name.endsWith(".wmv") || name.endsWith(".avi") || name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".flac") || name.endsWith(".ogg") || name.endsWith(".m4a") || name.endsWith(".aac") || name.endsWith(".wma"));
+                    return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".bmp") || name.endsWith(".svg") || name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mkv") || name.endsWith(".mov") || name.endsWith(".ogm") || name.endsWith(".wmv") || name.endsWith(".avi") || name.endsWith(".flv") || name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".flac") || name.endsWith(".ogg") || name.endsWith(".m4a") || name.endsWith(".aac") || name.endsWith(".wma"));
                 });
                 if (found != null) {
                     filesInDir = new ArrayList<>(Arrays.asList(found));
@@ -311,6 +312,7 @@ public class MainWindow {
 
         var fileRoot = new File(System.getProperty("user.home"));
         var root = new PathTreeNode(new FileNode(fileRoot));
+        root.setFilePath(fileRoot.toPath());
         var model = new DefaultTreeModel(root);
         fileTree.setModel(model);
         var cellRenderer = new DefaultTreeCellRenderer();
