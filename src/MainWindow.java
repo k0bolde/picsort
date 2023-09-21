@@ -6,7 +6,6 @@ import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.swing.plaf.basic.BasicTreeUI;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
@@ -20,12 +19,13 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
-//TODO change currImageNum to a spinner. Ran into a weird bug where it broke loading images?? might've been the changeListener responding to the prev/next buttons changing the value?
 //TODO more windows testing. Froze on dad when he picked his Desktop base folder. Didn't move a file when the tree was clicked - why?
-//TODO move menu options to buttons?
+//TODO change currImageNum to a spinner. Ran into a weird bug where it broke loading images?? might've been the changeListener responding to the prev/next buttons changing the value?
+//TODO ability to create folders by right clicking in tree and have tree auto update
+//TODO ability to copy image when right clicking in the tree
 //TODO menu option for showing hidden folders
+//TODO move menu options to buttons?
 //TODO Keybinds https://docs.oracle.com/javase/tutorial/uiswing/misc/keybinding.html for next/prev/delete image
-//TODO exr hdr avif heif animated webp psd support
 //TODO txt rtf pdf doc docx support for stories?
 //TODO direct reverse lookup for FA, IB, youtube, other sites we can pattern match and get the post url from - tineye for other images?
 
@@ -79,12 +79,10 @@ public class MainWindow {
             @Override
             public void windowClosing(WindowEvent e) {
                 mediaPlayer.release();
-                if (lastTmpPath != null) {
-                    try {
-                        Files.delete(lastTmpPath);
-                    } catch (IOException ex) {
-                        //ignore, not much we can do here
-                    }
+                if (lastTmpPath != null) try {
+                    Files.delete(lastTmpPath);
+                } catch (IOException ex) {
+                    //ignore, not much we can do here
                 }
                 System.exit(0);
             }
@@ -105,9 +103,8 @@ public class MainWindow {
 
             @Override
             public void error(MediaPlayer mediaPlayer) {
-                if (mediaPlayerShowing) {
+                if (mediaPlayerShowing)
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, "ERROR! Couldn't display media " + mediaPlayer.media().info().mrl()));
-                }
             }
 
             @Override
@@ -231,11 +228,8 @@ public class MainWindow {
                     var name = file.getName().toLowerCase();
                     return file.isFile() && (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".bmp") || name.endsWith(".svg") || name.endsWith(".mp4") || name.endsWith(".webm") || name.endsWith(".mkv") || name.endsWith(".mov") || name.endsWith(".ogm") || name.endsWith(".wmv") || name.endsWith(".avi") || name.endsWith(".flv") || name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".flac") || name.endsWith(".ogg") || name.endsWith(".m4a") || name.endsWith(".aac") || name.endsWith(".wma"));
                 });
-                if (found != null) {
-                    filesInDir = new ArrayList<>(Arrays.asList(found));
-                } else {
-                    filesInDir = new ArrayList<>();
-                }
+                if (found != null) filesInDir = new ArrayList<>(Arrays.asList(found));
+                else filesInDir = new ArrayList<>();
                 filesInDir.sort(Comparator.comparingLong(File::lastModified));
                 totalImagesLabel.setText("/" + filesInDir.size());
                 imgIdx = 0;
@@ -272,12 +266,10 @@ public class MainWindow {
         exitMenuItem = new JMenuItem("Exit");
         exitMenuItem.addActionListener(actionEvent -> {
             mediaPlayer.release();
-            if (lastTmpPath != null) {
-                try {
-                    Files.delete(lastTmpPath);
-                } catch (IOException ex) {
-                    //ignore, not much we can do here
-                }
+            if (lastTmpPath != null) try {
+                Files.delete(lastTmpPath);
+            } catch (IOException ex) {
+                //ignore, not much we can do here
             }
             System.exit(0);
         });
@@ -316,7 +308,6 @@ public class MainWindow {
         menuBar.add(menuHelp);
         frame.setJMenuBar(menuBar);
         mainSplit.setDividerLocation(300);
-
 
 
         var fileRoot = new File(System.getProperty("user.home"));
@@ -360,22 +351,16 @@ public class MainWindow {
         nextButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
 //            renameButton.doClick();
-            if (imgIdx < filesInDir.size() - 1) {
-                imgIdx += 1;
-            } else {
-                imgIdx = 0;
-            }
+            if (imgIdx < filesInDir.size() - 1) imgIdx += 1;
+            else imgIdx = 0;
             updateImg();
         });
         prevButton.setMnemonic(KeyEvent.VK_LEFT);
         prevButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
 //            renameButton.doClick();
-            if (imgIdx > 0) {
-                imgIdx -= 1;
-            } else {
-                imgIdx = filesInDir.size() - 1;
-            }
+            if (imgIdx > 0) imgIdx -= 1;
+            else imgIdx = filesInDir.size() - 1;
             updateImg();
         });
 //        panel1.addKeyListener(new KeyListener() {
@@ -408,12 +393,9 @@ public class MainWindow {
                 try {
 //                    renameButton.doClick();
                     var userNum = Integer.parseInt(currImageTextField.getText()) - 1;
-                    if (userNum >= 0 && userNum < filesInDir.size() - 1) {
-                        imgIdx = userNum;
-                    } else {
+                    if (userNum >= 0 && userNum < filesInDir.size()) imgIdx = userNum;
                         //just throw the same thing as a bad int so we can reuse that code
-                        throw new NumberFormatException();
-                    }
+                    else throw new NumberFormatException();
                     updateImg();
                 } catch (NumberFormatException e) {
                     currImageTextField.setText(String.valueOf(imgIdx + 1));
@@ -440,14 +422,11 @@ public class MainWindow {
 
             @Override
             public void keyPressed(KeyEvent keyEvent) {
-                if (keyEvent.getKeyCode() == KeyEvent.VK_ENTER) {
-                    renameButton.doClick();
-                }
+                if (keyEvent.getKeyCode() == KeyEvent.VK_ENTER) renameButton.doClick();
             }
 
             @Override
             public void keyReleased(KeyEvent keyEvent) {
-
             }
         });
         renameButton.addActionListener(actionEvent -> {
@@ -487,9 +466,7 @@ public class MainWindow {
             }
             filesInDir.remove(imgIdx);
             totalImagesLabel.setText("/" + filesInDir.size());
-            if (imgIdx >= filesInDir.size()) {
-                imgIdx = 0;
-            }
+            if (imgIdx >= filesInDir.size()) imgIdx = 0;
             updateImg();
         });
         undoButton.addActionListener(actionEvent -> {
@@ -535,9 +512,7 @@ public class MainWindow {
                     }
                     filesInDir.remove(imgIdx);
                     undoIdx = imgIdx;
-                    if (imgIdx >= filesInDir.size()) {
-                        imgIdx = 0;
-                    }
+                    if (imgIdx >= filesInDir.size()) imgIdx = 0;
                     undoFileTarget = toMove.toPath();
                     undoFileLocation = selectedNode.getFilePath().resolve(toMove.getName());
                     undoButton.setEnabled(true);
@@ -617,13 +592,10 @@ public class MainWindow {
         if (filesInDir == null || filesInDir.isEmpty()) {
             //if there are no images currently being browsed, show a specific pic. Fixes when moving/deleting last pic in a folder.
             swapImagePanel(false);
-            //TODO how to access/pack this in the jar?
             ImageIcon imgIcon;
-            if (getClass().getResource("/assets/nobrowse.png") != null) {
+            if (getClass().getResource("/assets/nobrowse.png") != null)
                 imgIcon = new ImageIcon(getClass().getResource("/assets/nobrowse.png"));
-            } else {
-                imgIcon = new ImageIcon("./assets/nobrowse.png");
-            }
+            else imgIcon = new ImageIcon("./assets/nobrowse.png");
             imageLabel.setIcon(imgIcon);
             currImageTextField.setText("0");
             renameTextField.setText("");
@@ -631,7 +603,6 @@ public class MainWindow {
         } else {
             var filename = filesInDir.get(imgIdx).getName().toLowerCase();
             try {
-                //TODO figure out why this isn't working. Errors on copying to it
 //                tmpPath = Files.createTempFile(filename, ".tmp");
                 //kinda nasty with the double, not sure why its being a bitch but its my logic's fault - it fires 3 times on start
                 var pathPart = filesInDir.get(imgIdx).getPath();
@@ -644,38 +615,28 @@ public class MainWindow {
             } catch (IOException e) {
                 System.err.println("Error copying to temp file: " + e.getMessage());
 //                JOptionPane.showMessageDialog(frame, "ERROR! Couldn't create temp file.");
-                if (lastTmpPath != null) {
-                    try {
-                        if (Files.exists(lastTmpPath)) Files.delete(lastTmpPath);
-                    } catch (IOException ex) {
-                        System.err.println("Error deleting temp file: " + ex.getMessage());
-                    }
+                if (lastTmpPath != null) try {
+                    if (Files.exists(lastTmpPath)) Files.delete(lastTmpPath);
+                } catch (IOException ex) {
+                    System.err.println("Error deleting temp file: " + ex.getMessage());
                 }
                 lastTmpPath = tmpPath;
                 return;
             }
-            //TODO don't try to load images that are too big
             if (filename.endsWith(".gif") || filename.endsWith(".webp")) {
                 ImageIcon imgIcon;
-                if (filename.endsWith(".gif")) {
-                    //use imageIcon constructor
-                    imgIcon = new ImageIcon(tmpPath.toString());
-                } else {
+                //use imageIcon constructor
+                if (filename.endsWith(".gif")) imgIcon = new ImageIcon(tmpPath.toString());
                     //use imageIO with imageIcon
-                    try {
-                        imgIcon = new ImageIcon(ImageIO.read(tmpPath.toFile()));
-                    } catch (IOException e) {
-                        if (e.getMessage().equals("Decode returned code UnsupportedFeature")) {
+                else try {
+                    imgIcon = new ImageIcon(ImageIO.read(tmpPath.toFile()));
+                } catch (IOException e) {
+                    if (e.getMessage().equals("Decode returned code UnsupportedFeature"))
+                        if (getClass().getResource("./assets/animatedwebperror.png") != null)
                             //set image to a builtin pic saying
-                            if (getClass().getResource("./assets/animatedwebperror.png") != null) {
-                                imgIcon = new ImageIcon(getClass().getResource("./assets/animatedwebperror.png"));
-                            } else {
-                                imgIcon = new ImageIcon("./assets/animatedwebperror.png");
-                            }
-                        } else {
-                            throw new RuntimeException(e);
-                        }
-                    }
+                            imgIcon = new ImageIcon(getClass().getResource("./assets/animatedwebperror.png"));
+                        else imgIcon = new ImageIcon("./assets/animatedwebperror.png");
+                    else throw new RuntimeException(e);
                 }
                 swapImagePanel(false);
                 imageLabel.setIcon(imgIcon);
@@ -689,13 +650,10 @@ public class MainWindow {
             currImageTextField.setText(String.valueOf(imgIdx + 1));
             renameTextField.setText(filesInDir.get(imgIdx).getName());
         }
-        if (lastTmpPath != null) {
-            try {
-                //FIXME windows not deleting
-                if (Files.exists(lastTmpPath)) Files.delete(lastTmpPath);
-            } catch (IOException ex) {
-                System.err.println("Error deleting temp file: " + ex.getMessage());
-            }
+        if (lastTmpPath != null) try {
+            if (Files.exists(lastTmpPath)) Files.delete(lastTmpPath);
+        } catch (IOException ex) {
+            System.err.println("Error deleting temp file: " + ex.getMessage());
         }
         lastTmpPath = tmpPath;
         //don't let the tree get shrunk by the bully images
@@ -727,25 +685,11 @@ public class MainWindow {
         //check if it hasn't been drawn yet
         if (d.width == 0 || d.height == 0) return;
         ImageIcon imgIcon = (ImageIcon) imageLabel.getIcon();
-        if (imgIcon.getIconWidth() > imgIcon.getIconHeight()) {
-            //image is wide
-            if (d.width > d.height) {
-                //label is wide too. use the label height
-                imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
-            } else {
-                //label is tall. use the label width
-                imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
-            }
-        } else {
-            //image is tall
-            if (d.width > d.height) {
-                //label is wide. use the label height
-                imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
-            } else {
-                //label is tall too. use the label width
-                imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
-            }
-        }
+        //label is wide too. use the label height
+        if (d.width > d.height)
+            imgIcon.setImage(imgIcon.getImage().getScaledInstance(-1, d.height, Image.SCALE_DEFAULT));
+            //label is tall. use the label width
+        else imgIcon.setImage(imgIcon.getImage().getScaledInstance(d.width, -1, Image.SCALE_DEFAULT));
     }
 
     public static class CreateChildNodes implements Runnable {
@@ -820,11 +764,8 @@ public class MainWindow {
         @Override
         public String toString() {
             var name = file.getName();
-            if (name.isEmpty()) {
-                return file.getAbsolutePath();
-            } else {
-                return name;
-            }
+            if (name.isEmpty()) return file.getAbsolutePath();
+            else return name;
         }
     }
 
