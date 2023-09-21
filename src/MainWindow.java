@@ -279,7 +279,11 @@ public class MainWindow {
         helpMenuItem = new JMenuItem("Help");
         helpMenuItem.addActionListener(actionEvent -> JOptionPane.showMessageDialog(frame, """
                 Basic usage: File -> Pick Base Folder to select what folder root to move files into.
+                    Give it up to 30 seconds when you change the base folder to load.
+                    It's currently limited to a max depth of 4 folders from the base folder you pick.
                 Then File -> Open Images In Folder to browse the images in that folder.
+                    Some images may not load by either showing a message, showing the previous image,
+                        showing a black screen, or glitching out.
                 Click on a folder in the tree on the left to move the currently viewed image to that folder.
                     - Files in the destination folder with the same name are overwritten.
                 Delete will move the currently viewed image to the recycle bin.
