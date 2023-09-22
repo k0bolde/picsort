@@ -18,14 +18,17 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.text.CharacterIterator;
+import java.text.StringCharacterIterator;
 import java.util.*;
-//TODO more windows testing. Froze on dad when he picked his Desktop base folder. Didn't move a file when the tree was clicked - why?
+//TODO undo hardening. Can be messed up by deleting items previous to the moved one
 //TODO change currImageNum to a spinner. Ran into a weird bug where it broke loading images?? might've been the changeListener responding to the prev/next buttons changing the value?
 //TODO ability to create folders by right clicking in tree and have tree auto update
 //TODO ability to copy image when right clicking in the tree
-//TODO menu option for showing hidden folders
-//TODO move menu options to buttons?
 //TODO Keybinds https://docs.oracle.com/javase/tutorial/uiswing/misc/keybinding.html for next/prev/delete image
+//TODO menu option for showing hidden folders
+//TODO menu option for reloading base folder and maybe auto expand the tree back to where you had it
+//TODO move menu options to buttons?
 //TODO txt rtf pdf doc docx support for stories?
 //TODO direct reverse lookup for FA, IB, youtube, other sites we can pattern match and get the post url from - tineye for other images?
 
@@ -62,6 +65,8 @@ public class MainWindow {
     private JLabel imageLabel;
     private JComboBox<String> sortTypeComboBox;
     private JButton renameButton;
+    private JButton openButton;
+    private JLabel filesizeLabel;
     private java.util.List<File> filesInDir;
     private int imgIdx = 0;
     private String lastSortOrder = "Asc";
@@ -495,6 +500,13 @@ public class MainWindow {
                 updateImg();
             }
         });
+        openButton.addActionListener(actionEvent -> {
+            try {
+                Desktop.getDesktop().open(filesInDir.get(imgIdx));
+            } catch (IOException e) {
+                System.err.println("Error opening file with Desktop");
+            }
+        });
         fileTree.addMouseListener(new MouseListener() {
             @Override
             public void mouseClicked(MouseEvent mouseEvent) {
@@ -591,6 +603,27 @@ public class MainWindow {
         frame.setExtendedState(frame.getExtendedState() | Frame.MAXIMIZED_BOTH);
     }
 
+    /**
+     * From https://stackoverflow.com/questions/3758606/how-can-i-convert-byte-size-into-a-human-readable-format-in-java
+     *
+     * @param bytes
+     * @return
+     */
+    public static String humanReadableByteCountBin(long bytes) {
+        long absB = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
+        if (absB < 1024) {
+            return bytes + " B";
+        }
+        long value = absB;
+        CharacterIterator ci = new StringCharacterIterator("KMGTPE");
+        for (int i = 40; i >= 0 && absB > 0xfffccccccccccccL >> i; i -= 10) {
+            value >>= 10;
+            ci.next();
+        }
+        value *= Long.signum(bytes);
+        return String.format("%.1f %ciB", value / 1024.0, ci.current());
+    }
+
     public void updateImg() {
         Path tmpPath = null;
         if (filesInDir == null || filesInDir.isEmpty()) {
@@ -653,6 +686,11 @@ public class MainWindow {
             }
             currImageTextField.setText(String.valueOf(imgIdx + 1));
             renameTextField.setText(filesInDir.get(imgIdx).getName());
+            try {
+                filesizeLabel.setText(humanReadableByteCountBin(Files.size(filesInDir.get(imgIdx).toPath())));
+            } catch (IOException e) {
+                filesizeLabel.setText("Unknown");
+            }
         }
         if (lastTmpPath != null) try {
             if (Files.exists(lastTmpPath)) Files.delete(lastTmpPath);
