@@ -21,11 +21,11 @@ import java.nio.file.StandardCopyOption;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.*;
-//TODO undo hardening. Can be messed up by deleting items previous to the moved one
-//TODO change currImageNum to a spinner. Ran into a weird bug where it broke loading images?? might've been the changeListener responding to the prev/next buttons changing the value?
+//TODO multiple undos
+//TODO undo deletes
 //TODO ability to create folders by right clicking in tree and have tree auto update
 //TODO ability to copy image when right clicking in the tree
-//TODO Keybinds https://docs.oracle.com/javase/tutorial/uiswing/misc/keybinding.html for next/prev/delete image
+//TODO change currImageNum to a spinner. Ran into a weird bug where it broke loading images?? might've been the changeListener responding to the prev/next buttons changing the value?
 //TODO menu option for showing hidden folders
 //TODO menu option for reloading base folder and maybe auto expand the tree back to where you had it
 //TODO move menu options to buttons?
@@ -346,15 +346,18 @@ public class MainWindow {
 //                return null;
 //            }
 //        });
-//        InputMap inputMap = fileTree.getInputMap( JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT );
-//        inputMap.clear();
-//        fileTree.setInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, inputMap);
-//        inputMap = fileTree.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-//        inputMap.clear();
-//        fileTree.setInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW, inputMap);
-//        inputMap = fileTree.getInputMap(JComponent.WHEN_FOCUSED);
-//        inputMap.clear();
-//        fileTree.setInputMap(JComponent.WHEN_FOCUSED, inputMap);
+        InputMap inputMap = fileTree.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+        inputMap.clear();
+        inputMap.getParent().clear();
+        fileTree.setInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, inputMap);
+        inputMap = fileTree.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        inputMap.clear();
+//        inputMap.getParent().clear();
+        fileTree.setInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW, inputMap);
+        inputMap = fileTree.getInputMap(JComponent.WHEN_FOCUSED);
+        inputMap.clear();
+        inputMap.getParent().clear();
+        fileTree.setInputMap(JComponent.WHEN_FOCUSED, inputMap);
 
         nextButton.setMnemonic(KeyEvent.VK_RIGHT);
         nextButton.addActionListener(actionEvent -> {
@@ -363,6 +366,33 @@ public class MainWindow {
             if (imgIdx < filesInDir.size() - 1) imgIdx += 1;
             else imgIdx = 0;
             updateImg();
+        });
+        frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "nextImage");
+        frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0), "nextImage");
+//        fileTree.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "nextImage");
+//        nextButton.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "nextImage");
+//        nextButton.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "nextImage");
+        frame.getRootPane().getActionMap().put("nextImage", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                nextButton.doClick();
+            }
+        });
+        frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), "prevImage");
+        frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_A, 0), "prevImage");
+        frame.getRootPane().getActionMap().put("prevImage", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                prevButton.doClick();
+            }
+        });
+        frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), "deleteImage");
+        frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0), "deleteImage");
+        frame.getRootPane().getActionMap().put("deleteImage", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                deleteButton.doClick();
+            }
         });
         prevButton.setMnemonic(KeyEvent.VK_LEFT);
         prevButton.addActionListener(actionEvent -> {
@@ -507,6 +537,84 @@ public class MainWindow {
                 System.err.println("Error opening file with Desktop");
             }
         });
+        imageLabel.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent mouseEvent) {
+                nextButton.requestFocusInWindow();
+            }
+
+            @Override
+            public void mousePressed(MouseEvent mouseEvent) {
+
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent mouseEvent) {
+
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent mouseEvent) {
+
+            }
+
+            @Override
+            public void mouseExited(MouseEvent mouseEvent) {
+
+            }
+        });
+        mediaPlayer.videoSurfaceComponent().addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent mouseEvent) {
+                nextButton.requestFocusInWindow();
+            }
+
+            @Override
+            public void mousePressed(MouseEvent mouseEvent) {
+
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent mouseEvent) {
+
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent mouseEvent) {
+
+            }
+
+            @Override
+            public void mouseExited(MouseEvent mouseEvent) {
+
+            }
+        });
+        buttonPanel.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent mouseEvent) {
+                nextButton.requestFocusInWindow();
+            }
+
+            @Override
+            public void mousePressed(MouseEvent mouseEvent) {
+
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent mouseEvent) {
+
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent mouseEvent) {
+
+            }
+
+            @Override
+            public void mouseExited(MouseEvent mouseEvent) {
+
+            }
+        });
         fileTree.addMouseListener(new MouseListener() {
             @Override
             public void mouseClicked(MouseEvent mouseEvent) {
@@ -535,6 +643,7 @@ public class MainWindow {
                     updateImg();
                     totalImagesLabel.setText("/" + filesInDir.size());
                 }
+                nextButton.requestFocusInWindow();
             }
 
             @Override
@@ -604,7 +713,7 @@ public class MainWindow {
     }
 
     /**
-     * From https://stackoverflow.com/questions/3758606/how-can-i-convert-byte-size-into-a-human-readable-format-in-java
+     * From <a href="https://stackoverflow.com/questions/3758606/how-can-i-convert-byte-size-into-a-human-readable-format-in-java">...</a>
      *
      * @param bytes
      * @return
