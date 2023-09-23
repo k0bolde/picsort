@@ -293,10 +293,10 @@ public class MainWindow {
                     - Files in the destination folder with the same name are overwritten.
                 Delete will move the currently viewed image to the recycle bin.
                     WARNING - full delete on linux.
+                Keyboard shortcuts: left/A - prev image, right/D - next image, delete/W - delete image
                 The undo button only works on the last image moved.
                 Enter an image number to jump to that image in the folder.
                 Images are only renamed if you press enter while typing a filename or press the rename button.
-                Keyboard shortcuts: alt+delete to delete, alt+left/alt+right for navigation
                 Supported filetypes:
                     Image: jpg, png, gif, webp (not animated), bmp, svg
                     Video: mp4, mkv, webm, mov, ogm, wmv, avi, flv
