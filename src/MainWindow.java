@@ -48,6 +48,7 @@ public class MainWindow {
     private final JFileChooser fc;
     //dunno why it needs callbackplayer but it errors out otherwise
     private final CallbackMediaPlayerComponent mediaPlayer;
+    private final Deque<UndoInfo> undoQueue;
     private JPanel panel1;
     private JButton deleteButton;
     private JTree fileTree;
@@ -76,11 +77,9 @@ public class MainWindow {
     //keep track manually instead of checking mediaPlayer.isAncestorOf() since that doesn't seem to work?
     private boolean mediaPlayerShowing = true;
     private Path lastTmpPath;
-    private Path undoFileLocation;
-    private Path undoFileTarget;
-    private Integer undoIdx;
 
     public MainWindow() {
+        undoQueue = new ArrayDeque<>();
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
             @Override
@@ -243,12 +242,10 @@ public class MainWindow {
                 currImageTextField.setText(String.valueOf(imgIdx + 1));
                 sortTypeComboBox.setSelectedIndex(0);
                 sortOrderComboBox.setSelectedIndex(0);
-                updateImg();
                 frame.setTitle("PicSort - " + selected.getPath());
-                undoFileTarget = null;
-                undoFileLocation = null;
-                undoIdx = null;
+                undoQueue.clear();
                 undoButton.setEnabled(false);
+                updateImg();
             }
         });
         menu.add(openMenuItem);
@@ -364,7 +361,6 @@ public class MainWindow {
         nextButton.setMnemonic(KeyEvent.VK_RIGHT);
         nextButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
-//            renameButton.doClick();
             if (imgIdx < filesInDir.size() - 1) imgIdx += 1;
             else imgIdx = 0;
             updateImg();
@@ -404,26 +400,6 @@ public class MainWindow {
             else imgIdx = filesInDir.size() - 1;
             updateImg();
         });
-//        panel1.addKeyListener(new KeyListener() {
-//            @Override
-//            public void keyTyped(KeyEvent keyEvent) {
-//
-//            }
-//
-//            @Override
-//            public void keyPressed(KeyEvent keyEvent) {
-//                switch (keyEvent.getKeyCode()){
-//                    case KeyEvent.VK_RIGHT -> nextButton.doClick();
-//                    case KeyEvent.VK_LEFT -> prevButton.doClick();
-//                    case KeyEvent.VK_DELETE -> deleteButton.doClick();
-//                }
-//            }
-//
-//            @Override
-//            public void keyReleased(KeyEvent keyEvent) {
-//
-//            }
-//        });
         currImageTextField.addFocusListener(new FocusListener() {
             @Override
             public void focusGained(FocusEvent focusEvent) {
@@ -432,7 +408,6 @@ public class MainWindow {
             @Override
             public void focusLost(FocusEvent focusEvent) {
                 try {
-//                    renameButton.doClick();
                     var userNum = Integer.parseInt(currImageTextField.getText()) - 1;
                     if (userNum >= 0 && userNum < filesInDir.size()) imgIdx = userNum;
                         //just throw the same thing as a bad int so we can reuse that code
@@ -482,7 +457,7 @@ public class MainWindow {
             var newName = new File(oldName.getPath().replace(oldName.getName(), renameTextField.getText()));
             if (oldName.equals(newName)) return;
             System.out.println("Renamed: " + oldName.getPath() + " to: " + newName.getPath());
-            lastActionLabel.setText("Renamed: " + oldName.getPath() + " to: " + newName.getPath());
+            lastActionLabel.setText("Renamed to " + newName.getPath());
             try {
                 Files.move(oldName.toPath(), newName.toPath(), StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
@@ -501,12 +476,14 @@ public class MainWindow {
                     JOptionPane.showMessageDialog(frame, "ERROR! Could not delete file.");
                     return;
                 }
-                System.out.println("Deleted file at path: " + filesInDir.get(imgIdx).getPath());
-                lastActionLabel.setText("Deleted file at path: " + filesInDir.get(imgIdx).getPath());
+                System.out.println("Recycle binned file at path: " + filesInDir.get(imgIdx).getPath());
+                lastActionLabel.setText("Recycle binned file at path: " + filesInDir.get(imgIdx).getPath());
             } catch (UnsupportedOperationException e) {
                 //TODO don't nest exceptions
                 try {
                     Files.delete(filesInDir.get(imgIdx).toPath());
+                    System.out.println("Deleted file at path: " + filesInDir.get(imgIdx).getPath());
+                    lastActionLabel.setText("Deleted file at path: " + filesInDir.get(imgIdx).getPath());
                 } catch (IOException ex) {
                     JOptionPane.showMessageDialog(frame, "ERROR! Could not delete file.");
                     System.err.println("Error deleting file: " + ex.getMessage());
@@ -519,24 +496,22 @@ public class MainWindow {
             updateImg();
         });
         undoButton.addActionListener(actionEvent -> {
-            if (undoFileLocation != null && undoFileTarget != null) {
+            if (!undoQueue.isEmpty()) {
                 //move the file back
                 //add it to the filesInDir list
                 //change to the restored image
+                UndoInfo inf = undoQueue.pop();
                 try {
-                    Files.move(undoFileLocation, undoFileTarget);
-                    System.out.println("Undo file move from path: " + undoFileLocation + " restored to path: " + undoFileTarget);
-                    lastActionLabel.setText("Undo file move from path: " + undoFileLocation + " restored to path: " + undoFileTarget);
+                    Files.move(inf.location, inf.target);
+                    System.out.println("Undo file move from path: " + inf.location + " restored to path: " + inf.target);
+                    lastActionLabel.setText("Undo file move to path: " + inf.location);
                 } catch (IOException e) {
                     JOptionPane.showMessageDialog(frame, "ERROR! Couldn't undo file move.");
                     System.err.println("Error undoing move for file: " + e.getMessage());
                     return;
                 }
-                filesInDir.add(undoIdx, undoFileTarget.toFile());
-                undoFileTarget = null;
-                undoFileLocation = null;
-                undoButton.setEnabled(false);
-                imgIdx = undoIdx;
+                filesInDir.add(imgIdx, inf.target.toFile());
+                if (undoQueue.isEmpty()) undoButton.setEnabled(false);
                 totalImagesLabel.setText("/" + filesInDir.size());
                 updateImg();
             }
@@ -648,17 +623,18 @@ public class MainWindow {
                         //Files.copy(file, target.resolve(source.relativize(file))); //target and source are paths
                         Files.move(toMove.toPath(), selectedNode.getFilePath().resolve(toMove.getName()), StandardCopyOption.REPLACE_EXISTING);
                         System.out.println("Moved file at path: " + toMove.getPath() + " to path: " + selectedNode.getFilePath().resolve(toMove.getName()));
-                        lastActionLabel.setText("Moved file from " + toMove.getPath() + " to " + selectedNode.getFilePath().resolve(toMove.getName()));
+                        lastActionLabel.setText("Moved file to " + selectedNode.getFilePath());
                     } catch (IOException e) {
                         JOptionPane.showMessageDialog(frame, "ERROR! Couldn't move file.");
                         System.err.println("Error moving file: " + e.getMessage());
                         return;
                     }
                     filesInDir.remove(imgIdx);
-                    undoIdx = imgIdx;
                     if (imgIdx >= filesInDir.size()) imgIdx = 0;
-                    undoFileTarget = toMove.toPath();
-                    undoFileLocation = selectedNode.getFilePath().resolve(toMove.getName());
+                    UndoInfo inf = new UndoInfo(toMove.toPath(), selectedNode.getFilePath().resolve(toMove.getName()));
+                    //limit the size of the undo queue
+                    if (undoQueue.size() >= 20) undoQueue.pop();
+                    undoQueue.push(inf);
                     undoButton.setEnabled(true);
                     updateImg();
                     totalImagesLabel.setText("/" + filesInDir.size());
@@ -899,6 +875,9 @@ public class MainWindow {
         public void run() {
             createChildren(fileRoot, root, 0);
         }
+    }
+
+    public record UndoInfo(Path target, Path location) {
     }
 
     public static class PathTreeNode extends DefaultMutableTreeNode {
