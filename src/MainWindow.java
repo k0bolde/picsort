@@ -21,6 +21,7 @@ import java.nio.file.StandardCopyOption;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.*;
+//TODO fix not moving file when mouse moved off of folder selected while button held down (folder is highlighted blue and nothing happens)
 //TODO multiple undos
 //TODO undo deletes
 //TODO ability to create folders by right clicking in tree and have tree auto update
@@ -67,6 +68,7 @@ public class MainWindow {
     private JButton renameButton;
     private JButton openButton;
     private JLabel filesizeLabel;
+    private JLabel lastActionLabel;
     private java.util.List<File> filesInDir;
     private int imgIdx = 0;
     private String lastSortOrder = "Asc";
@@ -448,7 +450,6 @@ public class MainWindow {
             public void focusGained(FocusEvent focusEvent) {
                 //highlight the basename
                 renameTextField.select(0, renameTextField.getText().lastIndexOf('.'));
-//                frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0), "nextImage");
                 frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).remove(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0));
                 frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).remove(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0));
                 frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).remove(KeyStroke.getKeyStroke(KeyEvent.VK_A, 0));
@@ -481,6 +482,7 @@ public class MainWindow {
             var newName = new File(oldName.getPath().replace(oldName.getName(), renameTextField.getText()));
             if (oldName.equals(newName)) return;
             System.out.println("Renamed: " + oldName.getPath() + " to: " + newName.getPath());
+            lastActionLabel.setText("Renamed: " + oldName.getPath() + " to: " + newName.getPath());
             try {
                 Files.move(oldName.toPath(), newName.toPath(), StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
@@ -493,13 +495,14 @@ public class MainWindow {
         deleteButton.setMnemonic(KeyEvent.VK_DELETE);
         deleteButton.addActionListener(actionEvent -> {
             if (filesInDir == null || filesInDir.isEmpty()) return;
-            System.out.println("Deleted file at path: " + filesInDir.get(imgIdx).getPath());
             try {
                 var deleted = Desktop.getDesktop().moveToTrash(filesInDir.get(imgIdx));
                 if (!deleted) {
                     JOptionPane.showMessageDialog(frame, "ERROR! Could not delete file.");
                     return;
                 }
+                System.out.println("Deleted file at path: " + filesInDir.get(imgIdx).getPath());
+                lastActionLabel.setText("Deleted file at path: " + filesInDir.get(imgIdx).getPath());
             } catch (UnsupportedOperationException e) {
                 //TODO don't nest exceptions
                 try {
@@ -523,6 +526,7 @@ public class MainWindow {
                 try {
                     Files.move(undoFileLocation, undoFileTarget);
                     System.out.println("Undo file move from path: " + undoFileLocation + " restored to path: " + undoFileTarget);
+                    lastActionLabel.setText("Undo file move from path: " + undoFileLocation + " restored to path: " + undoFileTarget);
                 } catch (IOException e) {
                     JOptionPane.showMessageDialog(frame, "ERROR! Couldn't undo file move.");
                     System.err.println("Error undoing move for file: " + e.getMessage());
@@ -625,17 +629,26 @@ public class MainWindow {
         fileTree.addMouseListener(new MouseListener() {
             @Override
             public void mouseClicked(MouseEvent mouseEvent) {
+            }
+
+            @Override
+            public void mousePressed(MouseEvent mouseEvent) {
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent mouseEvent) {
                 //move the current image to the selected folder and advance to next image
                 var selectedNode = (PathTreeNode) fileTree.getLastSelectedPathComponent();
                 fileTree.getSelectionModel().clearSelection();
                 if (filesInDir == null || filesInDir.isEmpty()) return;
                 if (selectedNode != null) {
                     var toMove = filesInDir.get(imgIdx);
-                    System.out.println("Moved file at path: " + toMove.getPath() + " to path: " + selectedNode.getFilePath().resolve(toMove.getName()));
                     try {
                         //might need:
                         //Files.copy(file, target.resolve(source.relativize(file))); //target and source are paths
                         Files.move(toMove.toPath(), selectedNode.getFilePath().resolve(toMove.getName()), StandardCopyOption.REPLACE_EXISTING);
+                        System.out.println("Moved file at path: " + toMove.getPath() + " to path: " + selectedNode.getFilePath().resolve(toMove.getName()));
+                        lastActionLabel.setText("Moved file from " + toMove.getPath() + " to " + selectedNode.getFilePath().resolve(toMove.getName()));
                     } catch (IOException e) {
                         JOptionPane.showMessageDialog(frame, "ERROR! Couldn't move file.");
                         System.err.println("Error moving file: " + e.getMessage());
@@ -651,14 +664,6 @@ public class MainWindow {
                     totalImagesLabel.setText("/" + filesInDir.size());
                 }
                 nextButton.requestFocusInWindow();
-            }
-
-            @Override
-            public void mousePressed(MouseEvent mouseEvent) {
-            }
-
-            @Override
-            public void mouseReleased(MouseEvent mouseEvent) {
             }
 
             @Override
