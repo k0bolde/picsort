@@ -293,7 +293,7 @@ public class MainWindow {
                 Delete will move the currently viewed image to the recycle bin.
                     WARNING - full delete on linux.
                 Keyboard shortcuts: left/A - prev image, right/D - next image, delete/W - delete image
-                The undo button only works on the last image moved.
+                The undo button only works moved images, NOT deleted ones. Limited to the last 20 moves.
                 Enter an image number to jump to that image in the folder.
                 Images are only renamed if you press enter while typing a filename or press the rename button.
                 Supported filetypes:
